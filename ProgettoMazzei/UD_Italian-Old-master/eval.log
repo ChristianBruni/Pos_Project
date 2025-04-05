@@ -1,0 +1,44 @@
+Running the following version of UD tools:
+commit c1984d97df0ecdcc1b50fbeaa8c96419c6321432
+Author: Dan Zeman <zeman@ufal.mff.cuni.cz>
+Date:   Sun Nov 10 10:33:45 2024 +0100
+Evaluating the following revision of UD_Italian-Old:
+commit dc8c4d80259aafd708aab563936974852fa9f96b
+Merge: 3d8eedf 6291082
+Author: Dan Zeman <zeman@ufal.mff.cuni.cz>
+Size: counted 122038 of 122038 words (nodes).
+Size: min(0, log((N/1000)**2)) = 9.60866494328939.
+Size: maximum value 13.815511 is for 1000000 words or more.
+Split: Found more than 10000 training words.
+Split: Found at least 10000 development words.
+Split: Found at least 10000 test words.
+Lemmas: source of annotation (from README) factor is 0.9.
+Universal POS tags: 16 out of 17 found in the corpus.
+Universal POS tags: source of annotation (from README) factor is 0.9.
+Features: 72602 out of 122038 total words have one or more features.
+Features: source of annotation (from README) factor is 0.9.
+Universal relations: 31 out of 37 found in the corpus.
+Universal relations: source of annotation (from README) factor is 1.
+Udapi:
+               TOTAL        926
+Udapi: found 926 bugs.
+Udapi: worst expected case (threshold) is one bug per 10 words. There are 122038 words.
+Genres: found 1 out of 17 known.
+/net/work/people/zeman/unidep/tools/validate.py --lang it --max-err=10 UD_Italian-Old/it_old-ud-dev.conllu
+*** PASSED ***
+/net/work/people/zeman/unidep/tools/validate.py --lang it --max-err=10 UD_Italian-Old/it_old-ud-test.conllu
+*** PASSED ***
+/net/work/people/zeman/unidep/tools/validate.py --lang it --max-err=10 UD_Italian-Old/it_old-ud-train.conllu
+*** PASSED ***
+Validity: 1
+(weight=0.0769230769230769) * (score{features}=0.9) = 0.0692307692307692
+(weight=0.0769230769230769) * (score{genres}=0.0588235294117647) = 0.00452488687782805
+(weight=0.0769230769230769) * (score{lemmas}=0.9) = 0.0692307692307692
+(weight=0.256410256410256) * (score{size}=0.695498360554634) = 0.178332912962727
+(weight=0.0512820512820513) * (score{split}=1) = 0.0512820512820513
+(weight=0.0769230769230769) * (score{tags}=0.847058823529412) = 0.065158371040724
+(weight=0.307692307692308) * (score{udapi}=0.924121994788509) = 0.284345229165695
+(weight=0.0769230769230769) * (score{udeprels}=0.837837837837838) = 0.0644490644490645
+(TOTAL score=0.786554054239628) * (availability=1) * (validity=1) = 0.786554054239628
+STARS = 4
+UD_Italian-Old	0.786554054239628	4
