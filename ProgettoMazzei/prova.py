@@ -1,6 +1,7 @@
 from conllu import parse
 import numpy as np
 from collections import Counter
+import itertools
 
 
 
@@ -26,7 +27,9 @@ def create_mat(data):
                 for token in sentence 
                 if token["upostag"] != "_"]) 
                 for sentence in sentences]
-    
+
+    frasi = ["S0 " + s for s in frasi]
+
     return np.array(mat), np.array(frasi)
 
 
@@ -64,7 +67,7 @@ def count_words(data):
 
 
 
-#DOVREBBE FUNZIONARE
+#FUNZIONA
 #calcola le probabilità di ogni tag di essere associato ad una certa parola
 #[['ADV' 'Non' '10' '0.009624639076034648']
 #['ADV' 'qui' '17' '0.016361886429258902']
@@ -90,35 +93,44 @@ def calc_prob_emissione(data, tags):
 
 
 
-
-
-
-
-
-
-
-
 #calcola la probabilità che un tag occorra dato il tag precedente
 #se è la prima parola di una frase allora il tag prima sarà S0
-#P(t | t-1) = C(t-1, t) / C(t-1)
-def calc_prob_transizione(data, tags, sentences):
-    return 0
+#[['ADV', 'ADV', 78, 0.06200317965023847],
+# .....
+#['SYM', 'SYM', 0, 0.0]]
+def calc_prob_transizione(tags, sentences):
+    tags = np.vstack((tags, ["S0", len(sentences), '0']))
+
+    print(tags)
+    pairs = list(itertools.product([item[0] for item in tags], repeat = 2)) #crea tutte le possibili coppie di tag
+    pairs = [[p[0], p[1], 0] for p in pairs]
+
+    for s in sentences: #stringa di tag
+        for element in s.split(): #tag singolo
+            if element != "S0": #se non è il primo elemento
+                #(before, element) per questa coppia devo fare +1 in pairs
+                for p in pairs: #conta quante volte è presente la coppia x, y nel corpus
+                    if p[0] == before and p[1] == element:
+                        p[2] += 1
+                        break
+            before = element
+    result = []
+    for pair in pairs:
+        total_tag = tags[tags[:, 0] == pair[0]][0, 1].astype(int)
+        prob = pair[2] / total_tag
+        result.append(prob)
+
+    for pair, prob in zip(pairs, result):
+        pair.append(prob)
+    return pairs
 
 
 
 
 
 
-#SBAGLIATA
-#conta quante volte una parola è associata ad un tag
-#calcola la probabilità che una parola
-#def count_word_tag_number(data):
-#    pairs = [tuple(x) for x in data]  # (word, tag)
-#    pairs_counts = Counter(pairs)
-#    np_pairs_counts = np.array([[word, tag, count] for (word, tag), count in pairs_counts.items()])
-#    counts = np_pairs_counts[:, 2].astype(int)
-#    freq = (counts / np.sum(counts)).reshape(-1, 1)
-#    return np.hstack((np_pairs_counts, freq))
+
+
 
 
 
@@ -137,7 +149,7 @@ def calc_prob_transizione(data, tags, sentences):
 #
 with open("UD_Italian-VIT-master/it_vit-ud-test.conllu", "r", encoding="utf-8") as f:
     data_vit_test = f.read()
-vit_test, sentences_vit_test = create_mat(data_vit_test)
+vit_test, vit_test_sentences = create_mat(data_vit_test)
 #
 #with open("UD_Italian-Old-master/it_old-ud-train.conllu", "r", encoding="utf-8") as f:
 #    data_old_train = f.read()
@@ -159,9 +171,9 @@ count_words = count_words(vit_test)
 
 prob_emissione = calc_prob_emissione(vit_test, count_tags)
 
+prob_transizione = calc_prob_transizione(count_tags, vit_test_sentences)
+print(prob_transizione)
 
-
-prob_transizione = calc_prob_transizione(vit_test, count_tags, vit_test_sentences)
 
 
 
