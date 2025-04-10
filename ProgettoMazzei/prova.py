@@ -5,17 +5,29 @@ from collections import Counter
 
 
 #FUNZIONA
-#crea la matrice con tutte le parole e il corrispondente tag
+#crea la matrice con tutte le parole e il corrispondente tag e crea il vettore con tutte le frasi
 #[['Non' 'ADV']
 # .....
 # ['stelle' 'NOUN']]
+
+#['ADV AUX VERB NOUN ADJ ADP DET NOUN ADP DET NOUN ADP NOUN PUNCT',
+# .....
+#'PRON VERB PRON ADV ADP ADV PUNCT SCONJ ADV PRON ADP ADJ AUX VERB ADP DET NOUN PRON VERB ADP VERB PRON PUNCT']
 def create_mat(data):
     sentences = parse(data)
+    
     mat = [[token["form"], token["upostag"]]    #aggiungi a mat la coppia
            for s in sentences                   #per ogni frase
            for token in s                       #per ogni token nella frase
            if token["upostag"] != '_']          #se il token è diverso da _
-    return np.array(mat)
+    
+    
+    frasi = [' '.join([token['upostag'] 
+                for token in sentence 
+                if token["upostag"] != "_"]) 
+                for sentence in sentences]
+    
+    return np.array(mat), np.array(frasi)
 
 
 
@@ -59,10 +71,10 @@ def count_words(data):
 # .....
 #['PART' 'Oh' '3' '0.42857142857142855']
 #['PART' 'O' '4' '0.5714285714285714']]
-def calc_prob_tag(data, count_tags):
+def calc_prob_emissione(data, tags):
     result = np.empty((0, 4))
 
-    for tag in count_tags[:, 0]: # ciclo su tutti i tag
+    for tag in tags[:, 0]: # ciclo su tutti i tag
 
         row_tag = data[data[:, 1] == tag] # prende tutte le occorrenze di tag
         pairs = [tuple(x) for x in row_tag] # crea coppie (word, tag)
@@ -75,6 +87,25 @@ def calc_prob_tag(data, count_tags):
         result = np.vstack((result, probability)) # aggiunge la lista al risultato
 
     return result
+
+
+
+
+
+
+
+
+
+
+
+#calcola la probabilità che un tag occorra dato il tag precedente
+#se è la prima parola di una frase allora il tag prima sarà S0
+#P(t | t-1) = C(t-1, t) / C(t-1)
+def calc_prob_transizione(data, tags, sentences):
+    return 0
+
+
+
 
 
 
@@ -104,9 +135,9 @@ def calc_prob_tag(data, count_tags):
 #    data_vit_dev = f.read()
 ## vit_dev = create_mat(data_vit_dev)
 #
-#with open("UD_Italian-VIT-master/it_vit-ud-test.conllu", "r", encoding="utf-8") as f:
-#    data_vit_test = f.read()
-## vit_test = create_mat(data_vit_test)
+with open("UD_Italian-VIT-master/it_vit-ud-test.conllu", "r", encoding="utf-8") as f:
+    data_vit_test = f.read()
+vit_test, sentences_vit_test = create_mat(data_vit_test)
 #
 #with open("UD_Italian-Old-master/it_old-ud-train.conllu", "r", encoding="utf-8") as f:
 #    data_old_train = f.read()
@@ -116,17 +147,28 @@ def calc_prob_tag(data, count_tags):
 #    data_old_dev = f.read()
 ## old_dev = create_mat(data_old_dev)
 
-with open("UD_Italian-Old-master/it_old-ud-test.conllu", "r", encoding="utf-8") as f:
-    data_old_test = f.read()
-old_test = create_mat(data_old_test)
+#with open("UD_Italian-Old-master/it_old-ud-test.conllu", "r", encoding="utf-8") as f:
+#    data_old_test = f.read()
+#old_test = create_mat(data_old_test)
 
 #[print(x) for x in old_test]
 #--------------------------------------------------------------------------------------------------------------------------------------
 
-count_tags = count_tags(old_test)
-count_words = count_words(old_test)
+count_tags = count_tags(vit_test)
+count_words = count_words(vit_test)
 
-calc_prob_tag = calc_prob_tag(old_test, count_tags)
+prob_emissione = calc_prob_emissione(vit_test, count_tags)
+
+
+
+prob_transizione = calc_prob_transizione(vit_test, count_tags, vit_test_sentences)
+
+
+
+
+
+
+
 
 
 
