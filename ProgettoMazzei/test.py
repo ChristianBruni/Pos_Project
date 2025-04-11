@@ -5,6 +5,7 @@ import itertools
 import hmmlearn
 import hidden_markov
 import pprint
+from hmmlearn import hmm
 
 
 # FUNZIONA
@@ -93,10 +94,10 @@ def calc_prob_emissione(data, tags):
         probability = np.array([[word, tag, int(count), int(count) / total_tag] for word, tag, count in
                                 np_pairs_counts])  # calcola la probabilità di tag di essere una certa parola e crea la lista: [word, tag, count, prob]
         result = np.vstack((result, probability))  # aggiunge la lista al risultato
-
     return result
 
 
+# FUNZIONA
 # calcola la probabilità che un tag occorra dato il tag precedente
 # se è la prima parola di una frase allora il tag prima sarà S0
 # [['ADV', 'ADV', 78, 0.06200317965023847],
@@ -126,46 +127,51 @@ def calc_prob_transizione(tags, sentences):
 
     for pair, prob in zip(pairs, result):
         pair.append(prob)
-    return pairs
+    return np.array(pairs)
 
 
 def convert_table(table):
     trans_p = defaultdict(dict)
     for x, y, count, prob in table:
-        if prob.astype(float) > 0.0:
-            trans_p[x][y] = prob
+        trans_p[x][y] = prob
     return dict(trans_p)
 
 
-# Funzione per convertire tutto
-def convert_np_dict(d):
-    return {
-        str(k): {str(kk): float(vv) for kk, vv in v.items()}
-        for k, v in d.items()
-    }
+# modifica il formato dei dati
+def format_dict(data):
+    converted_dict = {}
+
+    for outer_key, inner_dict in data.items():
+        # Converti le chiavi da np.str_ a stringhe
+        outer_key_str = str(outer_key)
+        inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
+
+        # Assegna il dizionario interno al tag esterno
+        converted_dict[outer_key_str] = inner_dict_converted
+
+    return converted_dict
 
 
+def start_prob(numpy_dict):
+    converted_dict = {}
 
+    for outer_key, inner_dict in numpy_dict.items():
+        # Converti le chiavi da np.str_ a stringhe
+        outer_key_str = str(outer_key)
+        inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
 
-def convert_to_npmatrix(data, tags):
+        # Assegna il dizionario interno al tag esterno
+        converted_dict[outer_key_str] = inner_dict_converted
+    # Estrai le etichette dalla chiave 'S0' (le chiavi interne del dizionario)
+    labels = list(converted_dict.keys())
 
-    print(tags)
-    tags = np.vstack((tags, ["S0"]))
-    print(tags)
-    mat = np.zeros((len(data), len(tags)))
+    # Creare la matrice dai valori associati a 'S0'
+    data_start = np.array([[converted_dict['S0'].get(col, 0) for col in labels]])
+    # Convertire in np.matrix
+    data_start = np.matrix(data_start)
+    # Stampa la matrice
 
-    tag_to_index = {tag: idx for idx, tag in enumerate(tags)}
-    print(tag_to_index)
-    for x in data:
-        row = tag_to_index[x[0]]
-        col = tag_to_index[x[1]]
-        prob = x[3]
-
-        mat[row, col] = prob
-
-        print(prob)
-    #print(mat)
-
+    return data_start
 
 
 # FUNZIONA
@@ -195,15 +201,33 @@ vit_test, vit_test_tags, vit_test_words = create_mat(data_vit_test)
 #    data_old_test = f.read()
 # old_test = create_mat(data_old_test)
 
-# [print(x) for x in old_test]
 # --------------------------------------------------------------------------------------------------------------------------------------
 
+# conta tag e parole
 count_tags = count_tags(vit_test)
 count_words = count_words(vit_test)
 
+# trasforma i tag in un lista di tag
+tags_list = count_tags[:, 0].tolist()
+tags_list.append('S0')  # aggiunge S0 ai tag (17 in totale)
+
+# calcola le probabilità di emissione
 prob_emissione = calc_prob_emissione(vit_test, count_tags)
 
+# calcola le probabilità di transizione
 prob_transizione = calc_prob_transizione(count_tags, vit_test_tags)
 
-[print(x) for x in prob_transizione]
-#convert_to_npmatrix(prob_transizione, count_tags[:, 0])
+# scrivere meglio
+prob_transizione_after = convert_table(prob_transizione)
+transition_dict = format_dict(prob_transizione_after)
+
+prob_emissione_after = convert_table(prob_emissione)
+emission_dict = format_dict(prob_emissione_after)
+
+start = start_prob(prob_transizione_after)  # dimensione 17
+print(start)
+
+
+
+
+

@@ -5,7 +5,35 @@ import itertools
 import hmmlearn
 import hidden_markov
 import pprint
+from hmmlearn import hmm
 
+
+def viterbi(obs, states, start_p, trans_p, emit_p):
+    V=[{}]
+    for i in states:
+        V[0][i]=start_p[i]*emit_p[i][obs[0]]
+    # Run Viterbi when t > 0
+    for t in range(1, len(obs)):
+        V.append({})
+        for y in states:
+            (prob, state) = max((V[t-1][y0] * trans_p[y0][y] * emit_p[y][obs[t]], y0) for y0 in states)
+            V[t][y] = prob
+        for i in dptable(V):
+            print (i)
+        opt=[]
+        for j in V:
+            for x,y in j.items():
+                if j[x]==max(j.values()):
+                    opt.append(x)
+    #the highest probability
+    h=max(V[-1].values())
+    print ('The steps of states are '+' '.join(opt)+' with highest probability of %s'%h)
+    #it prints a table of steps from dictionary
+
+def dptable(V):
+    yield " ".join(("%10d" % i) for i in range(len(V)))
+    for y in V[0]:
+        yield "%.7s: " % y+" ".join("%.7s" % ("%f" % v[y]) for v in V)
 
 #FUNZIONA
 #crea la matrice con tutte le parole e il corrispondente tag e crea il vettore con tutte le frasi
@@ -37,10 +65,7 @@ def create_mat(data):
                        if token["upostag"] != "_"])
              for sentence in sentences]
 
-
-
     return np.array(mat), np.array(frasi_tag), np.array(frasi_parole)
-
 
 
 #FUNZIONA
@@ -51,7 +76,6 @@ def calc_prob(data):
     counts = np_data_counts[:, 1].astype(int)
     freq = (counts / np.sum(counts)).reshape(-1, 1)
     return np.hstack((np_data_counts, freq))
-
 
 
 #FUNZIONA
@@ -97,11 +121,10 @@ def calc_prob_emissione(data, tags):
 
         probability = np.array([[word, tag, int(count), int(count) / total_tag] for word, tag, count in np_pairs_counts]) #calcola la probabilità di tag di essere una certa parola e crea la lista: [word, tag, count, prob]
         result = np.vstack((result, probability)) # aggiunge la lista al risultato
-
     return result
 
 
-
+#FUNZIONA
 #calcola la probabilità che un tag occorra dato il tag precedente
 #se è la prima parola di una frase allora il tag prima sarà S0
 #[['ADV', 'ADV', 78, 0.06200317965023847],
@@ -131,22 +154,21 @@ def calc_prob_transizione(tags, sentences):
 
     for pair, prob in zip(pairs, result):
         pair.append(prob)
-    return pairs
-
+    return np.array(pairs)
 
 
 def convert_table(table):
     trans_p = defaultdict(dict)
     for x, y, count, prob in table:
-        if prob.astype(float) > 0.0:
-            trans_p[x][y] = prob
+        trans_p[x][y] = prob
     return dict(trans_p)
 
-
-def convert_to_format(numpy_dict):
+# modifica il formato dei dati
+def format_dict(data):
     converted_dict = {}
 
-    for outer_key, inner_dict in numpy_dict.items():
+    for outer_key, inner_dict in data.items():
+
         # Converti le chiavi da np.str_ a stringhe
         outer_key_str = str(outer_key)
         inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
@@ -154,41 +176,8 @@ def convert_to_format(numpy_dict):
         # Assegna il dizionario interno al tag esterno
         converted_dict[outer_key_str] = inner_dict_converted
 
-    labels = list(converted_dict.keys())
-    # Creare la matrice dai valori del dizionario
-    matrix_data = np.array([[row.get(col, 0) for col in labels] for row in converted_dict.values()])
-    # Convertire in np.matrix
-    matrix = np.matrix(matrix_data)
-    # Stampa la matrice
+    return converted_dict
 
-    return matrix
-
-
-def convert_to_format_emission(numpy_dict, words):
-    converted_dict = {}
-
-    # Converte il dizionario numpy_dict in un formato leggibile
-    for outer_key, inner_dict in numpy_dict.items():
-        # Converti le chiavi da np.str_ a stringhe
-        outer_key_str = str(outer_key)
-        inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
-
-        # Assegna il dizionario interno al tag esterno
-        converted_dict[outer_key_str] = inner_dict_converted
-
-    # Lista di parole (parole osservate) che sono le colonne della matrice
-    labels = list(converted_dict.keys())  # i tag saranno le righe
-    labels.append('S0')
-    word_labels = words  # le parole sono le colonne
-
-    # Creare la matrice di emissione (probabilità di emissione tag -> parola)
-    matrix_data = np.array([[row.get(word, 0) for word in word_labels] for row in converted_dict.values()])
-
-    # Converti la matrice in np.matrix
-    matrix = np.matrix(matrix_data)
-
-    # Stampa la matrice
-    return matrix
 
 
 def start_prob(numpy_dict):
@@ -201,16 +190,10 @@ def start_prob(numpy_dict):
 
         # Assegna il dizionario interno al tag esterno
         converted_dict[outer_key_str] = inner_dict_converted
-    # Estrai le etichette dalla chiave 'S0' (le chiavi interne del dizionario)
-    labels = list(converted_dict.keys())
+    # Ora estrai solo i valori associati a 'S0', rimuovendo 'S0' stesso se è presente nei tag
+    start_probs = {tag: prob for tag, prob in converted_dict['S0'].items() if tag != 'S0'}
 
-    # Creare la matrice dai valori associati a 'S0'
-    data_start = np.array([[converted_dict['S0'].get(col, 0) for col in labels]])
-    # Convertire in np.matrix
-    data_start = np.matrix(data_start)
-    # Stampa la matrice
-
-    return data_start
+    return start_probs
 
 
 
@@ -245,91 +228,53 @@ vit_test, vit_test_tags, vit_test_words = create_mat(data_vit_test)
 
 #--------------------------------------------------------------------------------------------------------------------------------------
 
+#conta tag e parole
 count_tags = count_tags(vit_test)
 count_words = count_words(vit_test)
 
+#trasforma i tag in un lista di tag
+tags_list = count_tags[:, 0].tolist()
+tags_list.append('S0')     #aggiunge S0 ai tag (17 in totale)
+
+#calcola le probabilità di emissione
 prob_emissione = calc_prob_emissione(vit_test, count_tags)
 
+#calcola le probabilità di transizione
 prob_transizione = calc_prob_transizione(count_tags, vit_test_tags)
 
-#scrivere meglio
-#print(prob_transizione)
-prob_transizione_after = convert_table(prob_transizione)
-#print(prob_transizione_after)
-transition_matrix = convert_to_format(prob_transizione_after)
-#print(transition_matrix)
-# Estrai le etichette (chiavi principali)
 
+#scrivere meglio
+prob_transizione_after = convert_table(prob_transizione)
+transition_dict = format_dict(prob_transizione_after)
 
 prob_emissione_after = convert_table(prob_emissione)
-emission_matrix = convert_to_format_emission(prob_emissione_after, count_words[:, 1])
-
-
+emission_dict = format_dict(prob_emissione_after)
 
 start = start_prob(prob_transizione_after)  #dimensione 17
-
-#tags_list = count_tags[:, 0].tolist()
-#tags_list.append('S0')                      #dimensione 17
-
-
-for sentence in vit_test_words:
-    emission_matrix = convert_to_format_emission(prob_emissione_after, sentence.split())
-    print(emission_matrix.shape)
-
-    hidden_markov.hmm(sentence.split(), tags_list, start, transition_matrix, emission_matrix)
+states = [word for sentence in vit_test_words for word in sentence.split()]
 
 
 
 
-#hmm.viterbi(observations)
+#viterbi(tags_list,states,start,transition_dict,emission_dict)
+states2 = ('Healthy', 'Fever')
+observations = ('normal', 'cold', 'dizzy')
+start_probability = {'Healthy': 0.6, 'Fever': 0.4}
+transition_probability = {
+    'Healthy' : {'Healthy': 0.7, 'Fever': 0.3},
+    'Fever' : {'Healthy': 0.4, 'Fever': 0.6}
+}
+emission_probability = {
+    'Healthy' : {'normal': 0.5, 'cold': 0.4, 'dizzy': 0.1},
+    'Fever' : {'normal': 0.1, 'cold': 0.3, 'dizzy': 0.6}
+}
+
+viterbi(observations,
+        states2,
+        start_probability,
+        transition_probability,
+        emission_probability)
 
 
-
-
-
-
-
-
-
-#>>> states = ('s', 't')
-#>>> possible_observation = ('A','B' )
-#>>> # Numpy arrays of the data
-#>>> start_probability = np.matrix( '0.5 0.5 ')
-#>>> transition_probability = np.matrix('0.6 0.4 ;  0.3 0.7 ')
-#>>> emission_probability = np.matrix( '0.3 0.7 ; 0.4 0.6 ' )
-#>>> # Initialize class object
-#>>> test = hmm(states,possible_observation,start_probability,transition_probability,emission_probability)
-#>>> observations = ('A', 'B','B','A')
-#>>> print(test.forward_algo(observations))
-
-
-
-
-
-#sentence = ['il', 'gatto', 'corre']   OK
-#tags = ['DET', 'NOUN', 'VERB']   OK
-#
-#start_p = {'DET': 0.5, 'NOUN': 0.3, 'VERB': 0.2}  OK
-#
-#trans_p = {    OK
-#    'DET': {'NOUN': 0.8, 'VERB': 0.2},
-#    'NOUN': {'VERB': 0.6, 'NOUN': 0.1, 'DET': 0.3},
-#    'VERB': {'DET': 0.5, 'NOUN': 0.5}
-#}
-#
-#emit_p = {  OK
-#    'DET': {'il': 0.9},
-#    'NOUN': {'gatto': 0.8},
-#    'VERB': {'corre': 0.7}
-#}
-#
-#prob, tag_sequence = viterbi_pos_tagging(sentence, tags, start_p, trans_p, emit_p)
-#print("Probabilità:", prob)
-#print("Tag:", tag_sequence)
-
-
-
-#last_key = list(trans_p.keys())[-1]
-#last_row = trans_p[last_key]
 
 
