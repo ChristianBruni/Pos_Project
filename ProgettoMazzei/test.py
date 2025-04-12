@@ -2,6 +2,7 @@ from conllu import parse
 import numpy as np
 from collections import Counter, defaultdict
 import itertools
+import pandas as pd
 import hmmlearn
 import hidden_markov
 import pprint
@@ -77,24 +78,44 @@ def count_words(data):
 # .....
 # ['PART' 'Oh' '3' '0.42857142857142855']
 # ['PART' 'O' '4' '0.5714285714285714']]
-def calc_prob_emissione(data, tags):
-    result = np.empty((0, 4))
+#def calc_prob_emissione(data, tags):
+#    result = np.empty((0, 4))
+#
+#    for tag in tags[:, 0]:  # ciclo su tutti i tag
+#
+#        row_tag = data[data[:, 1] == tag]  # prende tutte le occorrenze di tag
+#        pairs = [tuple(x) for x in row_tag]  # crea coppie (word, tag)
+#        pairs_counts = Counter(pairs)  # conta le occorrenze di ogni coppia
+#        np_pairs_counts = np.array([[word, tag, count] for (tag, word), count in
+#                                    pairs_counts.items()])  # le converte in una lista numpy fatta: [word, tag, count]
+#
+#        total_tag = count_tags[count_tags[:, 0] == tag][0, 1].astype(
+#            int)  # cerca in count_tags il tag e ritorna il numero totale di volte che compare
+#
+#        probability = np.array([[word, tag, int(count), int(count) / total_tag] for word, tag, count in
+#                                np_pairs_counts])  # calcola la probabilità di tag di essere una certa parola e crea la lista: [word, tag, count, prob]
+#        result = np.vstack((result, probability))  # aggiunge la lista al risultato
+#    return result
 
-    for tag in tags[:, 0]:  # ciclo su tutti i tag
 
-        row_tag = data[data[:, 1] == tag]  # prende tutte le occorrenze di tag
-        pairs = [tuple(x) for x in row_tag]  # crea coppie (word, tag)
-        pairs_counts = Counter(pairs)  # conta le occorrenze di ogni coppia
-        np_pairs_counts = np.array([[word, tag, count] for (tag, word), count in
-                                    pairs_counts.items()])  # le converte in una lista numpy fatta: [word, tag, count]
 
-        total_tag = count_tags[count_tags[:, 0] == tag][0, 1].astype(
-            int)  # cerca in count_tags il tag e ritorna il numero totale di volte che compare
+def emission_matrix(data, count_tags):
+    tags = count_tags[:, 0]  # tutti i tag
+    parole = np.unique(data[:, 0])  # tutte le parole uniche
+    emission_matrix = pd.DataFrame(index=tags, columns=parole, data=0.0)
 
-        probability = np.array([[word, tag, int(count), int(count) / total_tag] for word, tag, count in
-                                np_pairs_counts])  # calcola la probabilità di tag di essere una certa parola e crea la lista: [word, tag, count, prob]
-        result = np.vstack((result, probability))  # aggiunge la lista al risultato
-    return result
+    for tag in tags:
+        row_tag = data[data[:, 1] == tag]  # tutte le righe con quel tag
+        pairs = [tuple(x) for x in row_tag]  # crea (word, tag)
+        pairs_counts = Counter(pairs)
+
+        total_tag = int(count_tags[count_tags[:, 0] == tag][0, 1])  # numero totale di volte che compare il tag
+
+        for (word, _), count in pairs_counts.items():
+            prob = count / total_tag if total_tag > 0 else 0.0
+            emission_matrix.loc[tag, word] = prob
+
+    return emission_matrix
 
 
 # FUNZIONA
@@ -103,75 +124,63 @@ def calc_prob_emissione(data, tags):
 # [['ADV', 'ADV', 78, 0.06200317965023847],
 # .....
 # ['SYM', 'SYM', 0, 0.0]]
-def calc_prob_transizione(tags, sentences):
+#def calc_prob_transizione(tags, sentences):
+#    tags = np.vstack((tags, ["S0", len(sentences), '0']))
+#
+#    # print(tags)
+#    pairs = list(itertools.product([item[0] for item in tags], repeat=2))  # crea tutte le possibili coppie di tag
+#    pairs = [[p[0], p[1], 0] for p in pairs]
+#
+#    for s in sentences:  # stringa di tag
+#        for element in s.split():  # tag singolo
+#            if element != "S0":  # se non è il primo elemento
+#                # (before, element) per questa coppia devo fare +1 in pairs
+#                for p in pairs:  # conta quante volte è presente la coppia x, y nel corpus
+#                    if p[0] == before and p[1] == element:
+#                        p[2] += 1
+#                        break
+#            before = element
+#    result = []
+#    for pair in pairs:
+#        total_tag = tags[tags[:, 0] == pair[0]][0, 1].astype(int)
+#        prob = pair[2] / total_tag
+#        result.append(prob)
+#
+#    for pair, prob in zip(pairs, result):
+#        pair.append(prob)
+#    return np.array(pairs)
+
+def transition_matrix(tags, sentences):
     tags = np.vstack((tags, ["S0", len(sentences), '0']))
 
-    # print(tags)
-    pairs = list(itertools.product([item[0] for item in tags], repeat=2))  # crea tutte le possibili coppie di tag
-    pairs = [[p[0], p[1], 0] for p in pairs]
+    tag_list = [item[0] for item in tags]
+    pairs = list(itertools.product(tag_list, repeat=2))  # tutte le possibili coppie (prev_tag, next_tag)
+    counts = { (p[0], p[1]): 0 for p in pairs }
 
-    for s in sentences:  # stringa di tag
-        for element in s.split():  # tag singolo
-            if element != "S0":  # se non è il primo elemento
-                # (before, element) per questa coppia devo fare +1 in pairs
-                for p in pairs:  # conta quante volte è presente la coppia x, y nel corpus
-                    if p[0] == before and p[1] == element:
-                        p[2] += 1
-                        break
+    for s in sentences:
+        before = "S0"  # prima parola della frase parte da "S0"
+        for element in s.split():
+            counts[(before, element)] += 1
             before = element
-    result = []
-    for pair in pairs:
-        total_tag = tags[tags[:, 0] == pair[0]][0, 1].astype(int)
-        prob = pair[2] / total_tag
-        result.append(prob)
 
-    for pair, prob in zip(pairs, result):
-        pair.append(prob)
-    return np.array(pairs)
+    # Calcola le probabilità di transizione
+    transition_matrix = pd.DataFrame(index=tag_list, columns=tag_list, data=0.0)
 
+    for (prev_tag, next_tag), count in counts.items():
+        total_prev = int(tags[tags[:, 0] == prev_tag][0, 1])  # frequenza totale del tag precedente
+        prob = count / total_prev if total_prev > 0 else 0.0
+        transition_matrix.loc[next_tag, prev_tag] = prob
 
-def convert_table(table):
-    trans_p = defaultdict(dict)
-    for x, y, count, prob in table:
-        trans_p[x][y] = prob
-    return dict(trans_p)
+    return transition_matrix
 
 
-# modifica il formato dei dati
-def format_dict(data):
-    converted_dict = {}
-
-    for outer_key, inner_dict in data.items():
-        # Converti le chiavi da np.str_ a stringhe
-        outer_key_str = str(outer_key)
-        inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
-
-        # Assegna il dizionario interno al tag esterno
-        converted_dict[outer_key_str] = inner_dict_converted
-
-    return converted_dict
 
 
-def start_prob(numpy_dict):
-    converted_dict = {}
-
-    for outer_key, inner_dict in numpy_dict.items():
-        # Converti le chiavi da np.str_ a stringhe
-        outer_key_str = str(outer_key)
-        inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
-
-        # Assegna il dizionario interno al tag esterno
-        converted_dict[outer_key_str] = inner_dict_converted
-    # Estrai le etichette dalla chiave 'S0' (le chiavi interne del dizionario)
-    labels = list(converted_dict.keys())
-
-    # Creare la matrice dai valori associati a 'S0'
-    data_start = np.array([[converted_dict['S0'].get(col, 0) for col in labels]])
-    # Convertire in np.matrix
-    data_start = np.matrix(data_start)
-    # Stampa la matrice
-
-    return data_start
+def start_tag(transition_matrix):
+    last_col = transition_matrix.columns[-1]  # es. "S0"
+    start = transition_matrix[last_col].values.copy()  # copia per sicurezza
+    start[-1] = 0.0  # azzera l'ultimo valore
+    return start
 
 
 # FUNZIONA
@@ -212,20 +221,97 @@ tags_list = count_tags[:, 0].tolist()
 tags_list.append('S0')  # aggiunge S0 ai tag (17 in totale)
 
 # calcola le probabilità di emissione
-prob_emissione = calc_prob_emissione(vit_test, count_tags)
+emission_matrix = emission_matrix(vit_test, count_tags)
+#display(pd.DataFrame(emission_matrix, columns = list(tags_list), index=list(count_words[:, 0])))
 
 # calcola le probabilità di transizione
-prob_transizione = calc_prob_transizione(count_tags, vit_test_tags)
+transition_matrix = transition_matrix(count_tags, vit_test_tags)
+#display(pd.DataFrame(transition_matrix, columns = list(tags_list), index=list(tags_list)))
 
-# scrivere meglio
-prob_transizione_after = convert_table(prob_transizione)
-transition_dict = format_dict(prob_transizione_after)
+start_tag = start_tag(transition_matrix)  # dimensione 17
+#print(start_tag)
 
-prob_emissione_after = convert_table(prob_emissione)
-emission_dict = format_dict(prob_emissione_after)
+print(emission_matrix)
 
-start = start_prob(prob_transizione_after)  # dimensione 17
-print(start)
+
+
+
+                #sentence, vit_test, transition_matri, emission_matrix
+def Viterbi_common(words, train_bag, tags_df, emission_matrix):
+
+
+
+
+
+    state = []
+    T = list(set([pair[1] for pair in train_bag]))  # tutti i tag possibili
+
+    for key, word in enumerate(words):
+        p = []
+        for tag in T:
+            # Probabilità di transizione
+            if key == 0:
+                transition_p = tags_df.loc['S0', tag]  # "S0" è lo stato iniziale
+            else:
+                transition_p = tags_df.loc[state[-1], tag]
+
+            # Probabilità di emissione: usa la matrice precomputata
+            if word in emission_matrix.columns:
+                emission_prob = emission_matrix.at[tag, word] if word in emission_matrix.columns else 0.0
+            else:
+                emission_prob = 1.0  # smoothing: parola non vista
+
+            # Probabilità totale
+            state_probability = emission_prob * transition_p
+            p.append(state_probability)
+
+        # Scelta del tag più probabile
+        pmax = max(p)
+        if pmax == 0.0:
+            state_word = 'NOUN'  # fallback tag
+        else:
+            state_word = T[p.index(pmax)]
+
+        state.append(state_word)
+    return list(zip(words, state))
+
+
+
+for sentence in vit_test_words:
+    sentence = sentence.split()
+
+tagged_seq_vanilla = Viterbi_common(sentence, vit_test, transition_matrix, emission_matrix)
+#print(tagged_seq_vanilla)
+#
+#check = [1 for (w1, t1), (w2, t2) in zip(tagged_seq_vanilla, vit_test) if w1 == w2 and t1 == t2]
+#accuracy = len(check) / len(tagged_seq_vanilla)
+#print(accuracy)
+
+
+
+
+def calculate_accuracy(predicted_seq, true_seq):
+    # Filtriamo il tag S0 e estraiamo solo i tag
+    predicted_tags = [tag for _, tag in predicted_seq if tag != 'S0']
+    true_seq = true_seq.split()
+    true_tags = [tag for tag in true_seq if tag != 'S0']
+
+    print(predicted_tags)
+    print(true_tags)
+
+    # Confrontiamo tag corrispondenti
+    correct_tags = [1 for p, t in zip(predicted_tags, true_tags) if p == t]
+
+    # Calcoliamo l'accuratezza
+    accuracy = len(correct_tags) / len(true_tags)
+    return accuracy
+
+
+
+
+accuracy = calculate_accuracy(tagged_seq_vanilla, vit_test_tags[-1])
+print("Accuracy:", accuracy)
+
 
 
 

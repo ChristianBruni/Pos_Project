@@ -107,21 +107,44 @@ def count_words(data):
 # .....
 #['PART' 'Oh' '3' '0.42857142857142855']
 #['PART' 'O' '4' '0.5714285714285714']]
+import numpy as np
+from collections import Counter
+
 def calc_prob_emissione(data, tags):
-    result = np.empty((0, 4))
+    # Lista che conterrà i risultati finali
+    result = []
 
-    for tag in tags[:, 0]: # ciclo su tutti i tag
+    # Tutte le parole uniche nel dataset
+    all_words = np.unique(data[:, 0])
+    # Creiamo un dizionario con i tag e il loro numero totale di occorrenze
+    total_tags = {tag[0]: int(tag[1]) for tag in tags}
 
-        row_tag = data[data[:, 1] == tag] # prende tutte le occorrenze di tag
-        pairs = [tuple(x) for x in row_tag] # crea coppie (word, tag)
-        pairs_counts = Counter(pairs) # conta le occorrenze di ogni coppia
-        np_pairs_counts = np.array([[word, tag, count] for (tag, word), count in pairs_counts.items()]) # le converte in una lista numpy fatta: [word, tag, count]
+    # Inizializza un contatore per tutte le possibili coppie (word, tag)
+    all_pairs_counts = Counter({(word, tag[0]): 0 for word in all_words for tag in tags})
 
-        total_tag = count_tags[count_tags[:, 0] == tag][0, 1].astype(int) # cerca in count_tags il tag e ritorna il numero totale di volte che compare
+    # Aggiorna il contatore con le occorrenze effettive
+    for word, tag in zip(data[:, 0], data[:, 1]):
+        all_pairs_counts[(word, tag)] += 1
 
-        probability = np.array([[word, tag, int(count), int(count) / total_tag] for word, tag, count in np_pairs_counts]) #calcola la probabilità di tag di essere una certa parola e crea la lista: [word, tag, count, prob]
-        result = np.vstack((result, probability)) # aggiunge la lista al risultato
-    return result
+    # Ora calcoliamo la probabilità per tutte le coppie
+    for tag in total_tags:  # ciclo su tutti i tag
+        total_tag = total_tags[tag]  # Numero totale di occorrenze del tag corrente
+
+        # Per ogni parola, calcoliamo la probabilità di quella parola rispetto al tag corrente
+        for word in all_words:
+            count = all_pairs_counts[(word, tag)]  # Conta le occorrenze della coppia (word, tag)
+            prob = count / total_tag if total_tag > 0 else 0.0  # Calcola la probabilità
+
+            # Aggiungi la riga al risultato
+            result.append([word, tag, count, prob])
+
+    # Converti la lista di risultati in un array NumPy
+    result_array = np.array(result, dtype=object)
+
+    return result_array
+
+
+
 
 
 #FUNZIONA
@@ -159,8 +182,16 @@ def calc_prob_transizione(tags, sentences):
 
 def convert_table(table):
     trans_p = defaultdict(dict)
+    #print(table)
     for x, y, count, prob in table:
+        #print(x, y,count,prob)
         trans_p[x][y] = prob
+    return dict(trans_p)
+
+def convert_table_emissione(table):
+    trans_p = defaultdict(dict)
+    for x, y, count, prob in table:
+        trans_p[y][x] = prob
     return dict(trans_p)
 
 # modifica il formato dei dati
@@ -231,50 +262,36 @@ vit_test, vit_test_tags, vit_test_words = create_mat(data_vit_test)
 #conta tag e parole
 count_tags = count_tags(vit_test)
 count_words = count_words(vit_test)
-
 #trasforma i tag in un lista di tag
 tags_list = count_tags[:, 0].tolist()
 tags_list.append('S0')     #aggiunge S0 ai tag (17 in totale)
 
 #calcola le probabilità di emissione
 prob_emissione = calc_prob_emissione(vit_test, count_tags)
-
+#print(prob_emissione)
 #calcola le probabilità di transizione
 prob_transizione = calc_prob_transizione(count_tags, vit_test_tags)
-
+#print(prob_transizione)
 
 #scrivere meglio
 prob_transizione_after = convert_table(prob_transizione)
 transition_dict = format_dict(prob_transizione_after)
 
-prob_emissione_after = convert_table(prob_emissione)
+prob_emissione_after = convert_table_emissione(prob_emissione)
 emission_dict = format_dict(prob_emissione_after)
+print(emission_dict['ADV'])
+# Conta gli elementi per ogni chiave
+for chiave, valore in emission_dict.items():
+    print(f"La chiave '{chiave}' contiene {len(valore)} elementi.")
 
 start = start_prob(prob_transizione_after)  #dimensione 17
 states = [word for sentence in vit_test_words for word in sentence.split()]
-
-
-
-
 #viterbi(tags_list,states,start,transition_dict,emission_dict)
-states2 = ('Healthy', 'Fever')
-observations = ('normal', 'cold', 'dizzy')
-start_probability = {'Healthy': 0.6, 'Fever': 0.4}
-transition_probability = {
-    'Healthy' : {'Healthy': 0.7, 'Fever': 0.3},
-    'Fever' : {'Healthy': 0.4, 'Fever': 0.6}
-}
-emission_probability = {
-    'Healthy' : {'normal': 0.5, 'cold': 0.4, 'dizzy': 0.1},
-    'Fever' : {'normal': 0.1, 'cold': 0.3, 'dizzy': 0.6}
-}
-
-viterbi(observations,
-        states2,
-        start_probability,
-        transition_probability,
-        emission_probability)
 
 
 
 
+
+
+#tags_df = pd.DataFrame(transition_dict, columns = list(tags_list), index=list(tags_list))
+#display(tags_df)
