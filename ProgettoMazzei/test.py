@@ -231,7 +231,7 @@ transition_matrix = transition_matrix(count_tags, vit_test_tags)
 start_tag = start_tag(transition_matrix)  # dimensione 17
 #print(start_tag)
 
-print(emission_matrix)
+#print(emission_matrix)
 
 
 
@@ -276,31 +276,33 @@ def Viterbi_common(words, train_bag, tags_df, emission_matrix):
     return list(zip(words, state))
 
 
+tag_result = []
 
 for sentence in vit_test_words:
     sentence = sentence.split()
-
-tagged_seq_vanilla = Viterbi_common(sentence, vit_test, transition_matrix, emission_matrix)
-#print(tagged_seq_vanilla)
-#
-#check = [1 for (w1, t1), (w2, t2) in zip(tagged_seq_vanilla, vit_test) if w1 == w2 and t1 == t2]
-#accuracy = len(check) / len(tagged_seq_vanilla)
-#print(accuracy)
+    tagged_seq_vanilla = Viterbi_common(sentence, vit_test, transition_matrix, emission_matrix)
+    tag_result.append(tagged_seq_vanilla)
 
 
+
+#print(tag_result)
 
 
 def calculate_accuracy(predicted_seq, true_seq):
     # Filtriamo il tag S0 e estraiamo solo i tag
-    predicted_tags = [tag for _, tag in predicted_seq if tag != 'S0']
-    true_seq = true_seq.split()
-    true_tags = [tag for tag in true_seq if tag != 'S0']
+    predicted_tags = [tag for tag in predicted_seq if tag != 'S0']
+
+    all_tags = []
+    for s in true_seq:
+        all_tags.extend(s.item().split())
+
+    true_tags = [tag for tag in all_tags if tag != 'S0']
 
     print(predicted_tags)
-    print(true_tags)
+    #print(len(true_tags))
 
     # Confrontiamo tag corrispondenti
-    correct_tags = [1 for p, t in zip(predicted_tags, true_tags) if p == t]
+    correct_tags = [print(p, t) for p, t in zip(predicted_tags, true_tags) if p == t]
 
     # Calcoliamo l'accuratezza
     accuracy = len(correct_tags) / len(true_tags)
@@ -308,12 +310,27 @@ def calculate_accuracy(predicted_seq, true_seq):
 
 
 
+flat_result = []
 
-accuracy = calculate_accuracy(tagged_seq_vanilla, vit_test_tags[-1])
+for sentence in tag_result:
+    for word, tag in sentence:
+        # Se il tag è di tipo np.str_, estrai il valore con .item(), altrimenti prendilo diretto
+        if hasattr(tag, "item"):
+            flat_result.append(tag.item())
+        else:
+            flat_result.append(tag)
+
+
+
+
+accuracy = calculate_accuracy(flat_result, vit_test_tags)
 print("Accuracy:", accuracy)
 
 
 
 
-
+#aggiungere i controlli per quando non ci sono le parole
+#modificare come viene calcolata la emission table
+#provare ad allenare il modello con un dataset diverso
+#modificare le probabilità con i logaritmi
 
