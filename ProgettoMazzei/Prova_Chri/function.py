@@ -86,7 +86,7 @@ def emission_matrix(data, tags):
     tags_list = tags[:, 0]  # tutti i tag
     parole = np.unique(data[:, 0]) # tutte le parole uniche
 
-    mat = pd.DataFrame(index = tags, columns = parole, data = 0.0)
+    mat = pd.DataFrame(index = tags_list, columns = parole, data = 0.0)
 
     for tag in tags_list:
         row_tag = data[data[:, 1] == tag] # tutte le righe con quel tag
@@ -96,7 +96,7 @@ def emission_matrix(data, tags):
         total_tag = int(tags[tags[:, 0] == tag][0, 1]) # numero totale di volte che compare il tag
 
         for (word, _), count in pairs_counts.items():
-            prob = count / total_tag if total_tag > 0 else 0.0
+            prob = count / total_tag if total_tag > 0 else 1e-6
             mat.loc[tag, word] = prob
 
     return mat
@@ -149,35 +149,36 @@ def start_tag(transition_matrix):
 # input train_set: training set (serve solo per ricavare tutti i possibili tag) (modificare?)
 # input tm: transition matrix
 # input em: emission matrix
-def viterbi(words, train_set, tm, em):
+def viterbi(words, tags, tm, em):
 
     state = [] # lista dei tag assegnati parola per parola
-    tag_list = list(set([pair[1] for pair in train_set]))  # tutti i tag possibili
+    #tag_list = list(set([pair[1] for pair in tags]))  # tutti i tag possibili
+    tags = tags[:, 0].tolist()
 
     for key, word in enumerate(words): # ciclo su tutte le parole da taggare
         p = [] # lista delle probabilità di ogni tag per la parola
 
-        for tag in tag_list: # cicla su tutti i possibili tag
+        for tag in tags: # cicla su tutti i possibili tag
 
             # probabilità di transizione
             if key == 0:
-                tr_prob = tm.loc['S0', tag]  # "S0" è lo stato iniziale
+                tr_prob = tm.loc[tag, 'S0']  # "S0" è lo stato iniziale
             else:
-                tr_prob = tm.loc[state[-1], tag]
+                tr_prob = tm.loc[tag, state[-1]]
 
             # probabilità di emissione
             if word in em.columns:
                 em_prob = em.at[tag, word] # se la parola è nella matrice di emissione
             else:
-                em_prob = 1.0  # smoothing: parola non vista
+                em_prob = 1e-6  # smoothing: parola non vista
 
             # probabilità totale
             final_prob = em_prob * tr_prob
             p.append(final_prob)
 
         max_prob = max(p) # sceglie il tag con probabilità maggiore
-
-        state_word = 'NOUN' if max_prob == 0.0 else tag_list[p.index(max_prob)]
+        #print(word, max_prob)
+        state_word = 'NOUN' if max_prob == 0.0 else tags[p.index(max_prob)]
         state.append(state_word)
 
     return list(zip(words, state))
@@ -208,12 +209,8 @@ def calc_accuracy(predict_seq, true_seq):
 
     true_tags = [tag for tag in all_tags if tag != 'S0'] # rimozione dei tag S0
 
-    print(flat_result[:20])
-    print(true_tags[:20])
-    print(len(flat_result))
-    print(len(true_tags))
-
     correct = sum(1 for p, t in zip(flat_result, true_tags) if p == t) # somma 1 per ogni tag corretto
+
     accuracy = correct / len(true_tags)
 
     return accuracy
