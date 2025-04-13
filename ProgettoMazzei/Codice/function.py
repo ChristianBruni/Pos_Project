@@ -61,7 +61,7 @@ def calc_prob(data):
 # [['ADV' '1039' '0.0855848434925865']
 # .....
 # ['PART' '7' '0.0005766062602965404']]
-def count_tags(data):
+def fn_count_tags(data):
     tags = [x[1] for x in data]
     return calc_prob(tags)
 
@@ -72,7 +72,7 @@ def count_tags(data):
 # [['Non' '10' '0.0008237232289950577']
 # .....
 # 'velle' '1' '8.237232289950576e-05']]
-def count_words(data):
+def fn_count_words(data):
     words = [x[0] for x in data]
     return calc_prob(words)
 
@@ -96,7 +96,7 @@ def emission_matrix(data, tags):
         total_tag = int(tags[tags[:, 0] == tag][0, 1]) # numero totale di volte che compare il tag
 
         for (word, _), count in pairs_counts.items():
-            prob = count / total_tag if total_tag > 0 else 1e-6
+            prob = count / total_tag if total_tag > 0 else 0
             mat.loc[tag, word] = prob
 
     return mat
@@ -188,138 +188,42 @@ def viterbi(words, tags, tm, em):
 # calcola l'accuratezza dei tag
 # input predict_seq: sequenza di tutti i tag predetti
 # input true_seq: sequenza di tutti i veri tag
+# output: accuratezza
 def calc_accuracy(predict_seq, true_seq):
 
-    flat_result = []
-    for sentence in predict_seq:
-        for word, tag in sentence:
-            # Se il tag è di tipo np.str_, estrai il valore con .item(), altrimenti prendilo diretto
-            if hasattr(tag, "item"):
-                flat_result.append(tag.item())
-            else:
-                flat_result.append(tag)
+    predict = [str(tag) for sentence in predict_seq for _, tag in sentence] # estrae dalla sequenza predetta tutti i tag e li mette in un vettore
+
+    true = [tag for s in true_seq for tag in s.item().split() if tag != 'S0'] # estrae dalla vera sequenza tutti i tag e li mette in un vettore
+
+    correct = sum(1 for p, t in zip(predict, true) if p == t) # somma 1 per ogni tag corretto
+
+    return correct / len(true) # calcola l'accuratezza (# tag corretti / # totale di tag)
 
 
 
-    flat_result = [tag for tag in flat_result if tag != 'S0'] # rimozione dei tag S0 (non dovrebbero essercene)
+def tagging(train, train_tags, test_tags, test_words):
 
-    all_tags = []
-    for s in true_seq:
-        all_tags.extend(s.item().split())
+    # conta i tag
+    count_tags = fn_count_tags(train)
+    tags_list = count_tags[:, 0].tolist()
+    tags_list.append('S0')  # aggiunge S0
 
-    true_tags = [tag for tag in all_tags if tag != 'S0'] # rimozione dei tag S0
+    # conta le parole
+    #count_words = fn_count_words(train)
+    #words_list = count_words[:, 0].tolist()
 
-    correct = sum(1 for p, t in zip(flat_result, true_tags) if p == t) # somma 1 per ogni tag corretto
+    # calcola le probabilità di emissione
+    em = emission_matrix(train, count_tags)
 
-    accuracy = correct / len(true_tags)
+    # calcola le probabilità di transizione
+    tm = transition_matrix(train_tags, count_tags)
+    # print(pd.DataFrame(transition_matrix, columns = list(tags_list), index = list(tags_list)))
 
-    return accuracy
+    predicted_tags = []
+    for sentence in test_words:
+        tagged_seq = viterbi(sentence.split(), count_tags, tm, em)
+        print(tagged_seq)
 
+        predicted_tags.append(tagged_seq)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# FUNZIONA
-# calcola le probabilità di ogni tag di essere associato ad una certa parola
-# [['ADV' 'Non' '10' '0.009624639076034648']
-# ['ADV' 'qui' '17' '0.016361886429258902']
-# .....
-# ['PART' 'Oh' '3' '0.42857142857142855']
-# ['PART' 'O' '4' '0.5714285714285714']]
-#def calc_prob_emissione(data, tags):
-#    result = np.empty((0, 4))
-#
-#    for tag in tags[:, 0]:  # ciclo su tutti i tag
-#
-#        row_tag = data[data[:, 1] == tag]  # prende tutte le occorrenze di tag
-#        pairs = [tuple(x) for x in row_tag]  # crea coppie (word, tag)
-#        pairs_counts = Counter(pairs)  # conta le occorrenze di ogni coppia
-#        np_pairs_counts = np.array([[word, tag, count] for (tag, word), count in
-#                                    pairs_counts.items()])  # le converte in una lista numpy fatta: [word, tag, count]
-#
-#        total_tag = count_tags[count_tags[:, 0] == tag][0, 1].astype(
-#            int)  # cerca in count_tags il tag e ritorna il numero totale di volte che compare
-#
-#        probability = np.array([[word, tag, int(count), int(count) / total_tag] for word, tag, count in
-#                                np_pairs_counts])  # calcola la probabilità di tag di essere una certa parola e crea la lista: [word, tag, count, prob]
-#        result = np.vstack((result, probability))  # aggiunge la lista al risultato
-#    return result
-
-
-
-# FUNZIONA
-# calcola la probabilità che un tag occorra dato il tag precedente
-# se è la prima parola di una frase allora il tag prima sarà S0
-# [['ADV', 'ADV', 78, 0.06200317965023847],
-# .....
-# ['SYM', 'SYM', 0, 0.0]]
-#def calc_prob_transizione(tags, sentences):
-#    tags = np.vstack((tags, ["S0", len(sentences), '0']))
-#
-#    # print(tags)
-#    pairs = list(itertools.product([item[0] for item in tags], repeat=2))  # crea tutte le possibili coppie di tag
-#    pairs = [[p[0], p[1], 0] for p in pairs]
-#
-#    for s in sentences:  # stringa di tag
-#        for element in s.split():  # tag singolo
-#            if element != "S0":  # se non è il primo elemento
-#                # (before, element) per questa coppia devo fare +1 in pairs
-#                for p in pairs:  # conta quante volte è presente la coppia x, y nel corpus
-#                    if p[0] == before and p[1] == element:
-#                        p[2] += 1
-#                        break
-#            before = element
-#    result = []
-#    for pair in pairs:
-#        total_tag = tags[tags[:, 0] == pair[0]][0, 1].astype(int)
-#        prob = pair[2] / total_tag
-#        result.append(prob)
-#
-#    for pair, prob in zip(pairs, result):
-#        pair.append(prob)
-#    return np.array(pairs)
+    return calc_accuracy(predicted_tags, test_tags)
