@@ -47,9 +47,9 @@ def load_data_old_dev():
 
     with open(path_old_dev, "r", encoding="utf-8") as f:
         data_old_dev = f.read()
-    old_dev, old_train_dev, old_train_dev = fn.create_mat(data_old_dev)
+    old_dev, old_train_tags, old_train_words = fn.create_mat(data_old_dev)
 
-    return old_dev, old_train_dev, old_train_dev
+    return old_dev, old_train_tags, old_train_words
 
 def load_data_old_test():
     path = os.path.dirname(os.path.abspath(__file__))

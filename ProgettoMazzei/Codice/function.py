@@ -86,7 +86,7 @@ def emission_matrix(data, tags):
     tags_list = tags[:, 0]  # tutti i tag
     parole = np.unique(data[:, 0]) # tutte le parole uniche
 
-    mat = pd.DataFrame(index = tags_list, columns = parole, data = 0.0)
+    emission_matrix = pd.DataFrame(index = tags_list, columns = parole, data = 0.0)
 
     for tag in tags_list:
         row_tag = data[data[:, 1] == tag] # tutte le righe con quel tag
@@ -97,9 +97,9 @@ def emission_matrix(data, tags):
 
         for (word, _), count in pairs_counts.items():
             prob = count / total_tag if total_tag > 0 else 0
-            mat.loc[tag, word] = prob
+            emission_matrix.loc[tag, word] = prob
 
-    return mat
+    return emission_matrix
 
 
 
@@ -132,19 +132,7 @@ def transition_matrix(sentences, tags):
 
 
 
-# FUNZIONA MA NON SERVE
-# calcola la probabilità del primo tag
-# input transition_matrix
-# output start: array con le probabilità dei tag
-def start_tag(transition_matrix):
-    last_col = transition_matrix.columns[-1]  # es. "S0"
-    start = transition_matrix[last_col].values.copy()  # copia per sicurezza
-    start[-1] = 0.0  # azzera l'ultimo valore (se non si fa rimane 1)
-    return start
 
-
-
-# TESTARE
 # input words: elenco delle parole di una singola frase da taggare
 # input train_set: training set (serve solo per ricavare tutti i possibili tag) (modificare?)
 # input tm: transition matrix
@@ -170,15 +158,22 @@ def viterbi(words, tags, tm, em):
             if word in em.columns:
                 em_prob = em.at[tag, word] # se la parola è nella matrice di emissione
             else:
-                em_prob = 1e-6  # smoothing: parola non vista
+                em_prob = 1e-6 # smoothing: parola non vista
 
             # probabilità totale
-            final_prob = em_prob * tr_prob
+            #final_prob = em_prob * tr_prob
+            final_prob = -np.log(em_prob + 1e-6) + -np.log(tr_prob + 1e-6)
             p.append(final_prob)
 
-        max_prob = max(p) # sceglie il tag con probabilità maggiore
-        #print(word, max_prob)
-        state_word = 'NOUN' if max_prob == 0.0 else tags[p.index(max_prob)]
+        #max_prob = max(p)
+        #state_word = 'NOUN' if max_prob == 0.0 else tags[p.index(max_prob)]
+
+        min_prob = min(p)
+        if min_prob == (-np.log(1e-6) + -np.log(1e-6)) or min_prob == (-np.log(1e-6 + 1e-6) + -np.log(1e-6)):
+            state_word = 'NOUN'
+        else:
+            state_word = tags[p.index(min_prob)]
+
         state.append(state_word)
 
     return list(zip(words, state))
@@ -217,13 +212,12 @@ def tagging(train, train_tags, test_tags, test_words):
 
     # calcola le probabilità di transizione
     tm = transition_matrix(train_tags, count_tags)
-    # print(pd.DataFrame(transition_matrix, columns = list(tags_list), index = list(tags_list)))
+
+    #print(pd.DataFrame(transition_matrix, columns = list(tags_list), index = list(tags_list)))
 
     predicted_tags = []
     for sentence in test_words:
         tagged_seq = viterbi(sentence.split(), count_tags, tm, em)
-        print(tagged_seq)
-
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)

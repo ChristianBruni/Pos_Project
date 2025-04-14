@@ -1,6 +1,5 @@
 import function as fn
 import read_file as rf
-import pandas as pd
 
 #letture dei file
 vit_train,  vit_train_tags, vit_train_words = rf.load_data_vit_train()
@@ -21,22 +20,22 @@ print("Accuracy:", fn.tagging(vit_train, vit_train_tags, vit_dev_tags, vit_dev_w
 
 # Training set: vit_train
 # Test set: vit_test
-#print("Training set: vit_train \nTest set: vit_test")
-#print("Accuracy:", fn.tagging(vit_train, vit_train_tags, vit_test_tags, vit_test_words), "\n")
+print("Training set: vit_train \nTest set: vit_test")
+print("Accuracy:", fn.tagging(vit_train, vit_train_tags, vit_test_tags, vit_test_words), "\n")
 
 
 
 # Training set: old_train
 # Test set: old_dev
-#print("Training set: old_train \nTest set: old_dev")
-#print("Accuracy:", fn.tagging(old_train, old_train_tags, old_dev_tags, old_dev_words), "\n")
+print("Training set: old_train \nTest set: old_dev")
+print("Accuracy:", fn.tagging(old_train, old_train_tags, old_dev_tags, old_dev_words), "\n")
 
 
 
 # Training set: old_train
 # Test set: old_test
-#print("Training set: old_train \nTest set: old_test")
-#print("Accuracy:", fn.tagging(old_train, old_train_tags, old_test_tags, old_test_words), "\n")
+print("Training set: old_train \nTest set: old_test")
+print("Accuracy:", fn.tagging(old_train, old_train_tags, old_test_tags, old_test_words), "\n")
 
 
 
