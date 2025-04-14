@@ -200,6 +200,18 @@ def calc_accuracy(predict_seq, true_seq):
     return correct / len(true) # calcola l'accuratezza (# tag corretti / # totale di tag)
 
 
+def calculate_accuracy(predicted_seq, true_seq):
+    # Filtriamo il tag S0 e estraiamo solo i tag
+    predicted_tags = [tag for _, tag in predicted_seq if tag != 'S0']
+    true_seq = true_seq.split()
+    true_tags = [tag for tag in true_seq if tag != 'S0']
+    print(predicted_tags)
+    print(true_tags)
+    # Confrontiamo tag corrispondenti
+    correct_tags = [1 for p, t in zip(predicted_tags, true_tags) if p == t]
+    # Calcoliamo l'accuratezza
+    accuracy = len(correct_tags) / len(true_tags)
+    return accuracy
 
 def tagging(train, train_tags, test_tags, test_words):
 
@@ -220,10 +232,10 @@ def tagging(train, train_tags, test_tags, test_words):
     # print(pd.DataFrame(transition_matrix, columns = list(tags_list), index = list(tags_list)))
 
     predicted_tags = []
-    for sentence in test_words:
+    for i, sentence in enumerate(test_words):
         tagged_seq = viterbi(sentence.split(), count_tags, tm, em)
-        print(tagged_seq)
-
+        acc = calculate_accuracy(tagged_seq, test_tags[i])
+        print(acc)
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)
