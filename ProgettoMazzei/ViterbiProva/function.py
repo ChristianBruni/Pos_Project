@@ -104,6 +104,55 @@ def viterbi_vn(observations, states, start_p, trans_p, emit_p):
     return list(zip(observations, best_path))
 
 
+def viterbi_with_develop(observations, states, start_p, trans_p, emit_p, distribution_prob):
+    # Inizializzazione delle strutture dati
+    viterbi = {state: [0.0] * len(observations) for state in states}
+    backpointer = {state: [None] * len(observations) for state in states}
+
+    # Inizializzazione (primo passo)
+    for state in states:
+        word = observations[0]
+        if word not in emit_p[state]:
+            emit_prob = distribution_prob[state]
+        else:
+            emit_prob = emit_p[state][word]
+        viterbi[state][0] = start_p.get(state, 0) * emit_prob
+        backpointer[state][0] = None
+
+    # Ricorsione (passi successivi)
+    for t in range(1, len(observations)):
+        word = observations[t]
+        for current_state in states:
+            max_prob = -1.0
+            best_prev_state = None
+            if word not in emit_p[current_state]:
+                emit_prob = distribution_prob[current_state]
+            else:
+                emit_prob = emit_p[current_state][word]
+
+            for prev_state in states:
+                trans_prob = trans_p[prev_state].get(current_state, 0)
+                prob = viterbi[prev_state][t-1] * trans_prob * emit_prob
+
+                if prob > max_prob:
+                    max_prob = prob
+                    best_prev_state = prev_state
+
+            viterbi[current_state][t] = max_prob
+            backpointer[current_state][t] = best_prev_state
+
+    # Terminazione (trova lo stato finale migliore)
+    best_last_state = max(states, key=lambda s: viterbi[s][-1])
+
+    # Ricostruzione del percorso all'indietro
+    best_path = [best_last_state]
+    for t in range(len(observations)-1, 0, -1):
+        best_last_state = backpointer[best_last_state][t]
+        best_path.insert(0, best_last_state)
+
+    return list(zip(observations, best_path))
+
+
 def viterbi_uniform(observations, states, start_p, trans_p, emit_p):
     # Inizializzazione delle strutture dati
     viterbi = {state: [0.0] * len(observations) for state in states}
@@ -151,6 +200,8 @@ def viterbi_uniform(observations, states, start_p, trans_p, emit_p):
         best_path.insert(0, best_last_state)
 
     return list(zip(observations, best_path))
+
+
 
 
 
@@ -356,6 +407,29 @@ def calc_prob_transizione(sentences, tags):
     return np.array(pairs)
 
 
+def prob_dev_distribution(dev, tags):
+    result = {}
+    # 1. Conta le occorrenze di ogni parola
+    word_counts = Counter(dev[:, 0])
+
+    # 2. Trova le parole che compaiono una sola volta
+    single_words = {word for word, count in word_counts.items() if count == 1}
+    total_single = len(single_words)
+    # 3. Conta i tag associati a queste parole singole
+    tag_counts = {}
+
+    for word, tag in dev:
+        if word in single_words:
+            tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    # 4. Calcola la distribuzione: P(tag | parola singola)
+    for tag in tags:
+        prob = tag_counts.get(tag, 0) / total_single if total_single > 0 else 0
+        result[tag] = prob
+
+    return result
+
+
 def convert_table(table):
     trans_p = defaultdict(dict)
     #print(table)
@@ -482,7 +556,7 @@ def tagging(train, train_tags, test_tags, test_words):
     count_tags = fn_count_tags(train)
     #trasforma i tag in un lista di tag
     tags_list = count_tags[:, 0].tolist()
-    tags_list.append('S0')     #aggiunge S0 ai tag (17 in totale)
+    #tags_list.append('S0')     #aggiunge S0 ai tag (17 in totale)
 
     #calcola le probabilità di emissione
     prob_emissione = calc_prob_emissione(train, count_tags)
@@ -505,7 +579,7 @@ def tagging(train, train_tags, test_tags, test_words):
     predicted_tags = []
 
     for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi_uniform_chri(sentence.split(), tags_list_new, start, transition_dict, emission_dict,count_tags)
+        tagged_seq = viterbi_uniform(sentence.split(), tags_list_new, start, transition_dict, emission_dict)
         #acc = calculate_accuracy(tagged_seq, test_tags[i])
         #print(acc)
         predicted_tags.append(tagged_seq)
@@ -513,6 +587,40 @@ def tagging(train, train_tags, test_tags, test_words):
 
     return calc_accuracy(predicted_tags, test_tags)
 
+def tagging_with_develop(train, train_tags, test_tags, test_words,dev):
+    count_tags = fn_count_tags(train)
+    #trasforma i tag in un lista di tag
+    tags_list = count_tags[:, 0].tolist()
+    #tags_list.append('S0')     #aggiunge S0 ai tag (17 in totale)
+
+    #calcola le probabilità di emissione
+    prob_emissione = calc_prob_emissione(train, count_tags)
+
+    #calcola le probabilità di transizione
+    prob_transizione = calc_prob_transizione(train_tags,count_tags)
+    #print(prob_transizione)
+
+    #scrivere meglio
+    prob_transizione_after = convert_table(prob_transizione)
+    transition_dict = format_dict(prob_transizione_after)
+
+    prob_emissione_after = convert_table_emissione(prob_emissione)
+    emission_dict = format_dict(prob_emissione_after)
+    start = start_prob(prob_transizione_after)
+    tags_list_new = count_tags[:, 0].tolist()
+
+
+    distribution_prob_unknown= prob_dev_distribution(dev, tags_list)
+    predicted_tags = []
+
+    for i, sentence in enumerate(test_words):
+        tagged_seq = viterbi_with_develop(sentence.split(), tags_list_new, start, transition_dict, emission_dict, distribution_prob_unknown)
+        #acc = calculate_accuracy(tagged_seq, test_tags[i])
+        #print(acc)
+        predicted_tags.append(tagged_seq)
+
+
+    return calc_accuracy(predicted_tags, test_tags)
 
 def evaluate_baseline(train, train_tags, test_tags, test_words):
 
