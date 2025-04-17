@@ -137,6 +137,39 @@ def transition_matrix(sentences, tags):
 # input train_set: training set (serve solo per ricavare tutti i possibili tag) (modificare?)
 # input tm: transition matrix
 # input em: emission matrix
+def viterbi_vn_smoothing(words, tags, tm, em):
+    state = []
+    tags = tags[:, 0].tolist()
+
+    for key, word in enumerate(words):
+        costs = []
+
+        for tag in tags:
+            # transizione
+            if key == 0:
+                tr_cost = -np.log(tm.loc[tag, 'S0'] + 1e-6)
+            else:
+                tr_cost = -np.log(tm.loc[tag, state[-1]] + 1e-6)
+
+            # emissione
+            if word in em.columns:
+                em_cost = -np.log(em.at[tag, word] + 1e-6)
+            else:
+                if tag in ['NOUN', 'VERB']:
+                    em_cost = -np.log(0.5)
+                else:
+                    em_cost = -np.log(1e-6)
+
+            total_cost = tr_cost + em_cost
+            costs.append(total_cost)
+
+        best_tag = tags[np.argmin(costs)]
+        state.append(best_tag)
+
+    return list(zip(words, state))
+
+
+
 def viterbi(words, tags, tm, em):
 
     state = [] # lista dei tag assegnati parola per parola
@@ -158,21 +191,17 @@ def viterbi(words, tags, tm, em):
             if word in em.columns:
                 em_prob = em.at[tag, word] # se la parola è nella matrice di emissione
             else:
-                em_prob = 1e-6 # smoothing: parola non vista
+                em_prob = 0.0 # smoothing: parola non vista
 
             # probabilità totale
-            #final_prob = em_prob * tr_prob
-            final_prob = -np.log(em_prob + 1e-6) + -np.log(tr_prob + 1e-6)
+            final_prob = em_prob * tr_prob
             p.append(final_prob)
 
-        #max_prob = max(p)
-        #state_word = 'NOUN' if max_prob == 0.0 else tags[p.index(max_prob)]
+        max_prob = max(p)
 
-        min_prob = min(p)
-        if min_prob == (-np.log(1e-6) + -np.log(1e-6)) or min_prob == (-np.log(1e-6 + 1e-6) + -np.log(1e-6)):
-            state_word = 'NOUN'
-        else:
-            state_word = tags[p.index(min_prob)]
+        if max_prob == 0.0:
+            state_word = find_state(word)
+        state_word = 'NOUN' if max_prob == 0.0 else tags[p.index(max_prob)]
 
         state.append(state_word)
 
@@ -200,6 +229,9 @@ def tagging(train, train_tags, test_tags, test_words):
 
     # conta i tag
     count_tags = fn_count_tags(train)
+
+    row = count_tags[count_tags[:, 0] == 'NOUN']
+
     tags_list = count_tags[:, 0].tolist()
     tags_list.append('S0')  # aggiunge S0
 
