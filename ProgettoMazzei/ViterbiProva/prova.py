@@ -1,6 +1,6 @@
 import function as fn
 import read_file as rf
-
+import numpy as np
 import pandas as pd
 
 #letture dei file
@@ -12,29 +12,43 @@ old_dev,    old_dev_tags,   old_dev_words   = rf.load_data_old_dev()
 old_test,   old_test_tags,  old_test_words  = rf.load_data_old_test()
 
 #-----------------------------------------------------------------------------------------------------------------------
-
+# 1) Separatamente
 # Training set: vit_train
 # Test set: vit_test
 #print("Training set: vit_train \nTest set: vit_test")
-#print("Accuracy:", fn.tagging(vit_train, vit_train_tags, vit_test_tags, vit_test_words), "\n")
-
+print("Accuracy:", fn.tagging(vit_train, vit_train_tags, vit_test_tags, vit_test_words), "\n")
+print("Accuracy baseline easy:", fn.evaluate_baseline(vit_train, vit_train_tags, vit_test_tags, vit_test_words))
 
 # Training set: old_train
 # Test set: old_test
-print("Training set: old_train \nTest set: old_test")
-print("Accuracy:", fn.tagging(old_train, old_train_tags, old_test_tags, old_test_words), "\n")
+#print("Training set: old_train \nTest set: old_test")
+#print("Accuracy:", fn.tagging(old_train, old_train_tags, old_test_tags, old_test_words), "\n")
+#print("Accuracy baseline easy:", fn.evaluate_baseline(old_train, old_train_tags, old_test_tags, old_test_words))
 
+# 2) Insieme
 
+# Training set: old_train + vit_train
+# Test set: old_test + vit_test
+#print("Training set: old_train + vit_train \nTest set: old_test + vit_test")
+#train = np.concatenate((vit_train, old_train), axis=0)
+#train_tags = np.concatenate((vit_train_tags, old_train_tags), axis=0)
+#test_tags = np.concatenate((vit_test_tags, old_test_tags), axis=0)
+#test_words = np.concatenate((vit_test_words, old_test_words), axis=0)
+#print("Accuracy:", fn.tagging(train, train_tags, test_tags, test_words), "\n")
+#print("Accuracy baseline easy:", fn.evaluate_baseline(train, train_tags, test_tags, test_words))
+
+# 3) OUT of DOMANI
 
 # Training set: vit_train
 # Test set: old_test
 #print("Training set: vit_train \nTest set: old_test")
 #print("Accuracy:", fn.tagging(vit_train, vit_train_tags, old_test_tags, old_test_words), "\n")
-
+#print("Accuracy baseline easy:", fn.evaluate_baseline(vit_train, vit_train_tags, old_test_tags, old_test_words))
 
 # Training set: old_train
 # Test set: vit_test
 #print("Training set: old_train \nTest set: vit_test")
 #print("Accuracy:", fn.tagging(old_train, old_train_tags, vit_test_tags, vit_test_words), "\n")
+#print("Accuracy baseline easy:", fn.evaluate_baseline(old_train, old_train_tags, vit_test_tags, vit_test_words))
 
 

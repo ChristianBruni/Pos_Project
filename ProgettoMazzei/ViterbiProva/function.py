@@ -2,10 +2,60 @@ from conllu import parse
 from collections import Counter, defaultdict
 import itertools
 import numpy as np
+import pandas as pd
 import math
 
-#versione senza logaritmi
-def viterbi(observations, states, start_p, trans_p, emit_p):
+def viterbi_n(observations, states, start_p, trans_p, emit_p):
+    # Inizializzazione delle strutture dati
+    viterbi = {state: [0.0] * len(observations) for state in states}
+    backpointer = {state: [None] * len(observations) for state in states}
+
+    # Inizializzazione (primo passo)
+    for state in states:
+        word = observations[0]
+        if word not in emit_p[state]:
+            emit_prob = emit_p[state].get(word, 1 if state in 'NOUN' else 0.0)
+        else:
+            emit_prob = emit_p[state][word]
+        viterbi[state][0] = start_p.get(state, 0) * emit_prob
+        backpointer[state][0] = None
+
+    # Ricorsione (passi successivi)
+    for t in range(1, len(observations)):
+        word = observations[t]
+        for current_state in states:
+            max_prob = -1.0
+            best_prev_state = None
+            if word not in emit_p[current_state]:
+                emit_prob = emit_p[current_state].get(word, 1 if current_state in 'NOUN' else 0.0)
+            else:
+                emit_prob = emit_p[current_state][word]
+
+            for prev_state in states:
+                trans_prob = trans_p[prev_state].get(current_state, 0)
+                prob = viterbi[prev_state][t-1] * trans_prob * emit_prob
+
+                if prob > max_prob:
+                    max_prob = prob
+                    best_prev_state = prev_state
+
+            viterbi[current_state][t] = max_prob
+            backpointer[current_state][t] = best_prev_state
+
+    # Terminazione (trova lo stato finale migliore)
+    best_last_state = max(states, key=lambda s: viterbi[s][-1])
+
+    # Ricostruzione del percorso all'indietro
+    best_path = [best_last_state]
+    for t in range(len(observations)-1, 0, -1):
+        best_last_state = backpointer[best_last_state][t]
+        best_path.insert(0, best_last_state)
+
+    return list(zip(observations, best_path))
+
+
+
+def viterbi_vn(observations, states, start_p, trans_p, emit_p):
     # Inizializzazione delle strutture dati
     viterbi = {state: [0.0] * len(observations) for state in states}
     backpointer = {state: [None] * len(observations) for state in states}
@@ -52,6 +102,56 @@ def viterbi(observations, states, start_p, trans_p, emit_p):
         best_path.insert(0, best_last_state)
 
     return list(zip(observations, best_path))
+
+
+def viterbi_uniform(observations, states, start_p, trans_p, emit_p):
+    # Inizializzazione delle strutture dati
+    viterbi = {state: [0.0] * len(observations) for state in states}
+    backpointer = {state: [None] * len(observations) for state in states}
+
+    # Inizializzazione (primo passo)
+    for state in states:
+        word = observations[0]
+        if word not in emit_p[state]:
+            emit_prob = 1/len(states)
+        else:
+            emit_prob = emit_p[state][word]
+        viterbi[state][0] = start_p.get(state, 0) * emit_prob
+        backpointer[state][0] = None
+
+    # Ricorsione (passi successivi)
+    for t in range(1, len(observations)):
+        word = observations[t]
+        for current_state in states:
+            max_prob = -1.0
+            best_prev_state = None
+            if word not in emit_p[current_state]:
+                emit_prob = 1/len(states)
+            else:
+                emit_prob = emit_p[current_state][word]
+
+            for prev_state in states:
+                trans_prob = trans_p[prev_state].get(current_state, 0)
+                prob = viterbi[prev_state][t-1] * trans_prob * emit_prob
+
+                if prob > max_prob:
+                    max_prob = prob
+                    best_prev_state = prev_state
+
+            viterbi[current_state][t] = max_prob
+            backpointer[current_state][t] = best_prev_state
+
+    # Terminazione (trova lo stato finale migliore)
+    best_last_state = max(states, key=lambda s: viterbi[s][-1])
+
+    # Ricostruzione del percorso all'indietro
+    best_path = [best_last_state]
+    for t in range(len(observations)-1, 0, -1):
+        best_last_state = backpointer[best_last_state][t]
+        best_path.insert(0, best_last_state)
+
+    return list(zip(observations, best_path))
+
 
 
 
@@ -339,6 +439,44 @@ def calculate_accuracy(predicted_seq, true_seq):
     accuracy = len(correct_tags) / len(true_tags)
     return accuracy
 
+def prob_words_tag(data, tags):
+    parole = np.unique(data[:, 0])   # tutte le parole uniche
+    tags_list = tags[:, 0]  # tutti i tag
+
+    # Inizializza la matrice: righe = parole, colonne = tag
+    mat = pd.DataFrame(index=parole, columns=tags_list, data=0.0)
+
+    # Conta tutte le (parola, tag)
+    pairs = [tuple(x) for x in data]
+    pairs_counts = Counter(pairs)
+
+    # Conta quante volte compare ogni parola
+    word_counts = Counter(data[:, 0])
+
+    for (word, tag), count in pairs_counts.items():
+        total_word = word_counts[word]
+        prob = count / total_word if total_word > 0 else 0
+        mat.loc[word, tag] = prob
+
+    return mat
+
+
+def baseline_tagger(words, tags, dict):
+    state = []  # lista dei tag assegnati parola per parola
+    tags_list = tags[:, 0]  # tutti i tag  # i tag sono le colonne nella matrice
+
+    for word in words:  # per ogni parola da taggare
+        if word in dict.index:
+            tag_probs = dict.loc[word]  # Serie con P(tag | parola)
+            best_tag = tag_probs.idxmax()  # tag con la probabilità più alta
+        else:
+            best_tag = 'NOUN'  # smoothing: parola mai vista, default a NOUN
+        state.append(best_tag)
+
+    return list(zip(words, state))
+
+
+
 def tagging(train, train_tags, test_tags, test_words):
 
     count_tags = fn_count_tags(train)
@@ -367,10 +505,27 @@ def tagging(train, train_tags, test_tags, test_words):
     predicted_tags = []
 
     for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi(sentence.split(), tags_list_new, start, transition_dict, emission_dict)
-        acc = calculate_accuracy(tagged_seq, test_tags[i])
-        print(acc)
+        tagged_seq = viterbi_uniform_chri(sentence.split(), tags_list_new, start, transition_dict, emission_dict,count_tags)
+        #acc = calculate_accuracy(tagged_seq, test_tags[i])
+        #print(acc)
         predicted_tags.append(tagged_seq)
 
+
+    return calc_accuracy(predicted_tags, test_tags)
+
+
+def evaluate_baseline(train, train_tags, test_tags, test_words):
+
+    # conta i tag
+    count_tags = fn_count_tags(train)
+    tags_list = count_tags[:, 0].tolist()
+    tags_list.append('S0')  # aggiunge S0
+
+    # calcola le probabilità di emissione
+    dict_word_tag = prob_words_tag(train, count_tags)
+    predicted_tags = []
+    for sentence in test_words:
+        tagged_seq = baseline_tagger(sentence.split(), count_tags, dict_word_tag)
+        predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)
