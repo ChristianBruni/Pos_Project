@@ -1,5 +1,7 @@
 import function as fn
 import read_file as rf
+import memm_tagger as mt
+import subprocess
 import numpy as np
 import pandas as pd
 
@@ -17,7 +19,7 @@ old_test,   old_test_tags,  old_test_words  = rf.load_data_old_test()
 # Test set: vit_test
 #print("Training set: vit_train \nTest set: vit_test")
 #print("Accuracy:", fn.tagging(vit_train, vit_train_tags, vit_test_tags, vit_test_words), "\n")
-#print("Accuracy:", fn.tagging_with_develop(vit_train, vit_train_tags, vit_test_tags, vit_test_words, vit_dev), "\n")
+#print("Accuracy dev:", fn.tagging_with_develop(vit_train, vit_train_tags, vit_test_tags, vit_test_words, vit_dev), "\n")
 #print("Accuracy baseline easy:", fn.evaluate_baseline(vit_train, vit_train_tags, vit_test_tags, vit_test_words))
 
 # Training set: old_train
@@ -26,6 +28,8 @@ print("Training set: old_train \nTest set: old_test")
 print("Accuracy:", fn.tagging(old_train, old_train_tags, old_test_tags, old_test_words), "\n")
 print("Accuracy dev:", fn.tagging_with_develop(old_train, old_train_tags, old_test_tags, old_test_words, old_dev), "\n")
 print("Accuracy baseline easy:", fn.evaluate_baseline(old_train, old_train_tags, old_test_tags, old_test_words))
+#print("Accuracy baseline difficile:", mt.run_process(old_train_words, old_train_tags, old_test_words,old_test_tags ))
+
 
 # 2) Insieme
 

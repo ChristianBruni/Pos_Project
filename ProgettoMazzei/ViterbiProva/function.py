@@ -5,6 +5,194 @@ import numpy as np
 import pandas as pd
 import math
 
+
+
+
+
+def guess_emission_prob(word, state):
+    """
+    Stima la probabilità di emissione per parole non viste, basandosi sul suffisso.
+    """
+
+
+
+
+    dict = {
+        'ADJ': [
+            'oso', 'osa', 'ile', 'ente', 'ante', 'ivo', 'iva', 'esco', 'esca',
+            'ario', 'aria', 'aceo', 'acea', 'ico', 'ica', 'ino', 'ina'
+        ],
+        'ADP': [
+            'di', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra'
+        ],
+        'ADV': [
+            'mente', 'qui', 'lì', 'là', 'via', 'giù', 'sù', 'ora', 'sempre', 'spesso', 'mai'
+        ],
+        'AUX': [
+            'sti', 'rà', 'rò', 'rebbe', 'fui', 'sarà', 'sia'
+        ],
+        'CCONJ': [
+            'ma', 'oppure', 'però', 'bensì', 'infatti', 'cioè'
+        ],
+        'DET': [
+            'il', 'lo', 'la', 'gli', 'le', 'un', 'una', 'uno', 'questo', 'quella', 'quel', 'questi'
+        ],
+        'INTJ': [
+            'oh', 'eh', 'ah', 'uff', 'bah', 'mah', 'wow', 'oops', 'accidenti', 'evviva'
+        ],
+        'NOUN': [
+            'zione', 'tà', 'mento', 'ore', 'ista', 'tore', 'trice', 'aggio', 'ezza',
+            'ismo', 'icità', 'ità', 'anza', 'enza', 'itudine', 'logia'
+        ],
+        'NUM': [
+            'uno', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove',
+            'dieci', 'cento', 'mille', 'milione', 'miliardo'
+        ],
+        'PART': [
+            'ci', 'mi', 'ti', 'vi', 'si'
+        ],
+        'PRON': [
+            'noi', 'voi', 'loro', 'egli', 'ella', 'esso'
+        ],
+        'PROPN': [
+            'ini', 'etti', 'one', 'oni', 'ani', 'elli', 'ardo'
+        ],
+        'PUNCT': [
+            '.', ',', ';', ':', '!', '?', '"', '«', '»', '…', '(', ')'
+        ],
+        'SCONJ': [
+            'che', 'perché', 'quando', 'mentre', 'sebbene', 'poiché', 'se', 'nonostante', 'finché', 'dopo che'
+        ],
+        'VERB': [
+            'are', 'ere', 'ire', 'ando', 'endo', 'ato', 'uto', 'ito', 'erei', 'erà', 'avo', 'ono', 'ano', 'iamo'
+        ],
+        'X': [
+            'xxx', '???', '###', '!!!', 'null'
+        ]
+    }
+
+    suffissi = dict.get(state, [])
+
+    # Capitalization heuristic: parola maiuscola = PROPN
+    if word[0].isupper():
+        word = word.lower()
+        if word in suffissi:
+                return 1
+        elif any(word.endswith(suf) for suf in suffissi):
+            return 1
+
+        if state == 'PROPN':
+            return 1
+        else:
+            return 0
+
+    word = word.lower()
+    suffissi = dict.get(state, [])
+
+    # Se la parola combacia con un suffisso noto
+    if word in suffissi:
+        return 1
+    elif any(word.endswith(suf) for suf in suffissi):
+        return 11
+
+    # Fallback: probabilità medie o basse
+    if state in ['NOUN', 'VERB']:
+        return 0.5
+    else:
+        return 0
+
+
+def viterbi_suffisso(observations, states, start_p, trans_p, emit_p):
+
+    # Inizializzazione delle strutture dati
+    viterbi = {state: [0.0] * len(observations) for state in states}
+    backpointer = {state: [None] * len(observations) for state in states}
+
+    ## Inizializzazione (primo passo)
+    arr_emit = []
+    for state in states:
+        word = observations[0]
+        if word not in emit_p[state]:
+            emit_prob = guess_emission_prob(word, state)
+        else:
+            emit_prob = emit_p[state][word]
+
+        arr_emit.append(emit_prob)
+
+    sum_arr_emit = sum(arr_emit)
+    if sum_arr_emit > 1:
+        for emit, state in zip(arr_emit, states):
+            viterbi[state][0] = start_p.get(state, 0) * (emit / sum_arr_emit)
+            backpointer[state][0] = None
+    else:
+        for emit, state in zip(arr_emit, states):
+            viterbi[state][0] = start_p.get(state, 0) * emit
+            backpointer[state][0] = None
+
+    # Ricorsione (passi successivi)
+    for t in range(1, len(observations)):
+        word = observations[t]
+        arr_emit2 = []
+        for current_state in states:
+            if word not in emit_p[current_state]:
+                emit_prob = guess_emission_prob(word, current_state)
+            else:
+                emit_prob = emit_p[current_state][word]
+            arr_emit2.append(emit_prob)
+
+        sum_arr_emit = sum(arr_emit2)
+
+        if sum_arr_emit > 1:
+            for emit, current_state in zip(arr_emit2, states):
+                max_prob = -1.0
+                best_prev_state = None
+                for prev_state in states:
+                    trans_prob = trans_p[prev_state].get(current_state, 0)
+                    prob = viterbi[prev_state][t-1] * trans_prob * (emit / sum_arr_emit)
+
+                    if prob > max_prob:
+                        max_prob = prob
+                        best_prev_state = prev_state
+
+                viterbi[current_state][t] = max_prob
+                backpointer[current_state][t] = best_prev_state
+        else:
+            for emit, current_state in zip(arr_emit2, states):
+                max_prob = -1.0
+                best_prev_state = None
+                for prev_state in states:
+                    trans_prob = trans_p[prev_state].get(current_state, 0)
+                    prob = viterbi[prev_state][t-1] * trans_prob * emit
+
+                    if prob > max_prob:
+                        max_prob = prob
+                        best_prev_state = prev_state
+
+                viterbi[current_state][t] = max_prob
+                backpointer[current_state][t] = best_prev_state
+
+    # Terminazione
+    best_last_state = max(states, key=lambda s: viterbi[s][-1])
+    best_path = [best_last_state]
+    for t in range(len(observations) - 1, 0, -1):
+        best_last_state = backpointer[best_last_state][t]
+        best_path.insert(0, best_last_state)
+
+    return list(zip(observations, best_path))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def viterbi_n(observations, states, start_p, trans_p, emit_p):
     # Inizializzazione delle strutture dati
     viterbi = {state: [0.0] * len(observations) for state in states}
@@ -579,7 +767,8 @@ def tagging(train, train_tags, test_tags, test_words):
     predicted_tags = []
 
     for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi_uniform(sentence.split(), tags_list_new, start, transition_dict, emission_dict)
+        tagged_seq = viterbi_suffisso(sentence.split(), tags_list_new, start, transition_dict, emission_dict)
+        #print(sentence.split())
         #acc = calculate_accuracy(tagged_seq, test_tags[i])
         #print(acc)
         predicted_tags.append(tagged_seq)
@@ -598,7 +787,6 @@ def tagging_with_develop(train, train_tags, test_tags, test_words,dev):
 
     #calcola le probabilità di transizione
     prob_transizione = calc_prob_transizione(train_tags,count_tags)
-    #print(prob_transizione)
 
     #scrivere meglio
     prob_transizione_after = convert_table(prob_transizione)
