@@ -6,16 +6,10 @@ import pandas as pd
 import math
 
 
-
-
-
 def guess_emission_prob(word, state):
     """
     Stima la probabilità di emissione per parole non viste, basandosi sul suffisso.
     """
-
-
-
 
     dict = {
         'ADJ': [
@@ -93,7 +87,7 @@ def guess_emission_prob(word, state):
     if word in suffissi:
         return 1
     elif any(word.endswith(suf) for suf in suffissi):
-        return 11
+        return 1
 
     # Fallback: probabilità medie o basse
     if state in ['NOUN', 'VERB']:
@@ -116,7 +110,6 @@ def viterbi_suffisso(observations, states, start_p, trans_p, emit_p):
             emit_prob = guess_emission_prob(word, state)
         else:
             emit_prob = emit_p[state][word]
-
         arr_emit.append(emit_prob)
 
     sum_arr_emit = sum(arr_emit)
@@ -184,15 +177,6 @@ def viterbi_suffisso(observations, states, start_p, trans_p, emit_p):
 
 
 
-
-
-
-
-
-
-
-
-
 def viterbi_n(observations, states, start_p, trans_p, emit_p):
     # Inizializzazione delle strutture dati
     viterbi = {state: [0.0] * len(observations) for state in states}
@@ -244,36 +228,41 @@ def viterbi_n(observations, states, start_p, trans_p, emit_p):
 
 
 def viterbi_vn(observations, states, start_p, trans_p, emit_p):
+    epsilon= 1e-6
     # Inizializzazione delle strutture dati
-    viterbi = {state: [0.0] * len(observations) for state in states}
+    viterbi = {state: [float('inf')] * len(observations) for state in states}
     backpointer = {state: [None] * len(observations) for state in states}
 
     # Inizializzazione (primo passo)
     for state in states:
         word = observations[0]
         if word not in emit_p[state]:
-            emit_prob = emit_p[state].get(word, 0.5 if state in ['NOUN', 'VERB'] else 0.0)
+            emit_prob = emit_p[state].get(word, 0.5 if state in ['NOUN', 'VERB'] else epsilon)
         else:
             emit_prob = emit_p[state][word]
-        viterbi[state][0] = start_p.get(state, 0) * emit_prob
+        emit_prob= max(emit_prob,epsilon)
+        start_prob = start_p.get(state, 0.0)
+        start_prob = max(start_prob, epsilon)
+        viterbi[state][0] = (- math.log(start_prob)) + (- math.log(emit_prob))
         backpointer[state][0] = None
 
     # Ricorsione (passi successivi)
     for t in range(1, len(observations)):
         word = observations[t]
         for current_state in states:
-            max_prob = -1.0
+            max_prob = float('inf')
             best_prev_state = None
             if word not in emit_p[current_state]:
-                emit_prob = emit_p[current_state].get(word, 0.5 if current_state in ['NOUN', 'VERB'] else 0.0)
+                emit_prob = emit_p[current_state].get(word, 0.5 if current_state in ['NOUN', 'VERB'] else epsilon)
             else:
                 emit_prob = emit_p[current_state][word]
-
+            emit_prob= max(emit_prob,epsilon)
             for prev_state in states:
                 trans_prob = trans_p[prev_state].get(current_state, 0)
-                prob = viterbi[prev_state][t-1] * trans_prob * emit_prob
+                trans_prob = max(trans_prob, epsilon)
+                prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob > max_prob:
+                if prob < max_prob:
                     max_prob = prob
                     best_prev_state = prev_state
 
@@ -281,7 +270,7 @@ def viterbi_vn(observations, states, start_p, trans_p, emit_p):
             backpointer[current_state][t] = best_prev_state
 
     # Terminazione (trova lo stato finale migliore)
-    best_last_state = max(states, key=lambda s: viterbi[s][-1])
+    best_last_state = min(states, key=lambda s: viterbi[s][-1])
 
     # Ricostruzione del percorso all'indietro
     best_path = [best_last_state]
@@ -291,10 +280,10 @@ def viterbi_vn(observations, states, start_p, trans_p, emit_p):
 
     return list(zip(observations, best_path))
 
-
 def viterbi_with_develop(observations, states, start_p, trans_p, emit_p, distribution_prob):
     # Inizializzazione delle strutture dati
-    viterbi = {state: [0.0] * len(observations) for state in states}
+    epsilon= 1e-6
+    viterbi = {state: [float('inf')] * len(observations) for state in states}
     backpointer = {state: [None] * len(observations) for state in states}
 
     # Inizializzazione (primo passo)
@@ -304,25 +293,30 @@ def viterbi_with_develop(observations, states, start_p, trans_p, emit_p, distrib
             emit_prob = distribution_prob[state]
         else:
             emit_prob = emit_p[state][word]
-        viterbi[state][0] = start_p.get(state, 0) * emit_prob
+
+        emit_prob= max(emit_prob,epsilon)
+        start_prob = start_p.get(state, 0.0)
+        start_prob = max(start_prob, epsilon)
+        viterbi[state][0] = (- math.log(start_prob)) + (- math.log(emit_prob))
         backpointer[state][0] = None
 
     # Ricorsione (passi successivi)
     for t in range(1, len(observations)):
         word = observations[t]
         for current_state in states:
-            max_prob = -1.0
+            max_prob = float('inf')
             best_prev_state = None
             if word not in emit_p[current_state]:
                 emit_prob = distribution_prob[current_state]
             else:
                 emit_prob = emit_p[current_state][word]
-
+            emit_prob= max(emit_prob,epsilon)
             for prev_state in states:
                 trans_prob = trans_p[prev_state].get(current_state, 0)
-                prob = viterbi[prev_state][t-1] * trans_prob * emit_prob
+                trans_prob = max(trans_prob, epsilon)
+                prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob > max_prob:
+                if prob < max_prob:
                     max_prob = prob
                     best_prev_state = prev_state
 
@@ -330,7 +324,7 @@ def viterbi_with_develop(observations, states, start_p, trans_p, emit_p, distrib
             backpointer[current_state][t] = best_prev_state
 
     # Terminazione (trova lo stato finale migliore)
-    best_last_state = max(states, key=lambda s: viterbi[s][-1])
+    best_last_state = min(states, key=lambda s: viterbi[s][-1])
 
     # Ricostruzione del percorso all'indietro
     best_path = [best_last_state]
@@ -343,7 +337,8 @@ def viterbi_with_develop(observations, states, start_p, trans_p, emit_p, distrib
 
 def viterbi_uniform(observations, states, start_p, trans_p, emit_p):
     # Inizializzazione delle strutture dati
-    viterbi = {state: [0.0] * len(observations) for state in states}
+    epsilon= 1e-6
+    viterbi = {state: [float('inf')] * len(observations) for state in states}
     backpointer = {state: [None] * len(observations) for state in states}
 
     # Inizializzazione (primo passo)
@@ -353,33 +348,39 @@ def viterbi_uniform(observations, states, start_p, trans_p, emit_p):
             emit_prob = 1/len(states)
         else:
             emit_prob = emit_p[state][word]
-        viterbi[state][0] = start_p.get(state, 0) * emit_prob
+
+        emit_prob = max(emit_prob, epsilon)
+        start_prob = start_p.get(state, 0.0)
+
+        start_prob = max(start_prob, epsilon)
+        viterbi[state][0] = math.log(start_prob) + math.log(emit_prob)
         backpointer[state][0] = None
 
     # Ricorsione (passi successivi)
     for t in range(1, len(observations)):
         word = observations[t]
         for current_state in states:
-            max_prob = -1.0
+            max_prob = float('inf')
             best_prev_state = None
             if word not in emit_p[current_state]:
                 emit_prob = 1/len(states)
             else:
                 emit_prob = emit_p[current_state][word]
 
+            emit_prob = max(emit_prob, epsilon)
+
             for prev_state in states:
                 trans_prob = trans_p[prev_state].get(current_state, 0)
-                prob = viterbi[prev_state][t-1] * trans_prob * emit_prob
+                trans_prob = max(trans_prob, epsilon)
+                prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) +(- math.log(emit_prob))
 
-                if prob > max_prob:
+                if prob < max_prob:
                     max_prob = prob
                     best_prev_state = prev_state
-
             viterbi[current_state][t] = max_prob
             backpointer[current_state][t] = best_prev_state
-
     # Terminazione (trova lo stato finale migliore)
-    best_last_state = max(states, key=lambda s: viterbi[s][-1])
+    best_last_state = min(states, key=lambda s: viterbi[s][-1])
 
     # Ricostruzione del percorso all'indietro
     best_path = [best_last_state]
@@ -390,74 +391,6 @@ def viterbi_uniform(observations, states, start_p, trans_p, emit_p):
     return list(zip(observations, best_path))
 
 
-
-
-
-
-#def viterbi(observations, states, start_p, trans_p, emit_p):
-#    # Inizializzazione delle strutture dati
-#    viterbi = {state: [float('-inf')] * len(observations) for state in states}
-#    backpointer = {state: [None] * len(observations) for state in states}
-#
-#    # Inizializzazione (primo passo)
-#    word = observations[0]
-#    for state in states:
-#        emit_prob = emit_p[state].get(word, 0.5 if state in ['NOUN', 'VERB'] else 0.0)
-#        if emit_prob == 0:
-#            emit_prob = float('-inf')  # path impossibile
-#        else:
-#            emit_prob = math.log(emit_prob)
-#        #emit_prob = max(emit_prob, 1e-6)  # assicurati > 0
-#        start_prob = start_p.get(state, 0.0)
-#        if start_prob == 0:
-#            start_prob = float('-inf')  # path impossibile
-#        else:
-#            start_prob = math.log(start_prob)
-#        #start_prob = max(start_prob, 1e-6)  # assicurati > 0
-#        viterbi[state][0] = start_prob + emit_prob
-#        backpointer[state][0] = None
-#
-#    # Ricorsione
-#    for t in range(1, len(observations)):
-#        word = observations[t]
-#        for current_state in states:
-#            emit_prob = emit_p[current_state].get(word, 0.5 if current_state in ['NOUN', 'VERB'] else 0.0)
-#            if emit_prob == 0:
-#                emit_prob = float('-inf')  # path impossibile
-#            else:
-#                emit_prob = math.log(emit_prob)
-#            #emit_prob = max(emit_prob, 1e-6)  # assicurati > 0
-#
-#            max_prob = float('-inf')
-#            best_prev_state = None
-#
-#            for prev_state in states:
-#                trans_prob = trans_p[prev_state].get(current_state, 0.0)
-#                if trans_prob == 0:
-#                    trans_prob = float('-inf')  # path impossibile
-#                else:
-#                    trans_prob = math.log(trans_prob)
-#                #trans_prob = max(trans_prob, 1e-6)  # assicurati > 0
-#
-#                prob = viterbi[prev_state][t-1] + trans_prob + emit_prob
-#
-#                if prob > max_prob:
-#                    max_prob = prob
-#                    best_prev_state = prev_state
-#
-#            viterbi[current_state][t] = max_prob
-#            backpointer[current_state][t] = best_prev_state
-#
-#    # Terminazione
-#    best_last_state = max(states, key=lambda s: viterbi[s][-1])
-#    best_path = [best_last_state]
-#
-#    # Backtrace
-#    for t in range(len(observations) - 1, 0, -1):
-#        best_last_state = backpointer[best_last_state][t]
-#        best_path.insert(0, best_last_state)
-#
-#    return list(zip(observations, best_path))
 
 
 
@@ -767,12 +700,11 @@ def tagging(train, train_tags, test_tags, test_words):
     predicted_tags = []
 
     for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi_suffisso(sentence.split(), tags_list_new, start, transition_dict, emission_dict)
-        #print(sentence.split())
-        #acc = calculate_accuracy(tagged_seq, test_tags[i])
-        #print(acc)
+        tagged_seq = viterbi_vn(sentence.split(), tags_list_new, start, transition_dict, emission_dict)
+        print(sentence.split())
+        acc = calculate_accuracy(tagged_seq, test_tags[i])
+        print(acc)
         predicted_tags.append(tagged_seq)
-
 
     return calc_accuracy(predicted_tags, test_tags)
 
