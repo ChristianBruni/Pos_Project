@@ -3,427 +3,11 @@ from collections import Counter, defaultdict
 import itertools
 import numpy as np
 import pandas as pd
+import viterbi as viterbi
 import math
 
 
 
-
-
-
-# algoritmo di viterbi con smoothing che tagga il termine con NOUN se non lo conosce
-# input: observations
-def viterbi_n(sentence, tags, start_p, tr, em):
-    # Inizializzazione delle strutture dati
-    viterbi = {state: [0.0] * len(sentence) for state in tags}
-    backpointer = {state: [None] * len(sentence) for state in tags}
-
-    # Inizializzazione (primo passo)
-    for state in tags:
-        word = sentence[0]
-        if word not in em[state]:
-            emit_prob = em[state].get(word, 1 if state in 'NOUN' else 0.0)
-        else:
-            emit_prob = em[state][word]
-        viterbi[state][0] = start_p.get(state, 0) * emit_prob
-        backpointer[state][0] = None
-
-    # Ricorsione (passi successivi)
-    for t in range(1, len(sentence)):
-        word = sentence[t]
-        for current_state in tags:
-            max_prob = -1.0
-            best_prev_state = None
-            if word not in em[current_state]:
-                emit_prob = em[current_state].get(word, 1 if current_state in 'NOUN' else 0.0)
-            else:
-                emit_prob = em[current_state][word]
-
-            for prev_state in tags:
-                trans_prob = tr[prev_state].get(current_state, 0)
-                prob = viterbi[prev_state][t-1] * trans_prob * emit_prob
-
-                if prob > max_prob:
-                    max_prob = prob
-                    best_prev_state = prev_state
-
-            viterbi[current_state][t] = max_prob
-            backpointer[current_state][t] = best_prev_state
-
-    # Terminazione (trova lo stato finale migliore)
-    best_last_state = max(tags, key=lambda s: viterbi[s][-1])
-
-    # Ricostruzione del percorso all'indietro
-    best_path = [best_last_state]
-    for t in range(len(sentence)-1, 0, -1):
-        best_last_state = backpointer[best_last_state][t]
-        best_path.insert(0, best_last_state)
-
-    return list(zip(sentence, best_path))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def check_syntax(word, state):
-    dict = {
-        'ADJ': [
-            'oso', 'osa', 'ile', 'ente', 'ante', 'ivo', 'iva', 'esco', 'esca',
-            'ario', 'aria', 'aceo', 'acea', 'ico', 'ica', 'ino', 'ina'
-        ],
-        'ADP': [
-            'di', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra'
-        ],
-        'ADV': [
-            'mente', 'qui', 'lì', 'là', 'via', 'giù', 'sù', 'ora', 'sempre', 'spesso', 'mai'
-        ],
-        'AUX': [
-            'sti', 'rà', 'rò', 'rebbe', 'fui', 'sarà', 'sia'
-        ],
-        'CCONJ': [
-            'ma', 'oppure', 'però', 'bensì', 'infatti', 'cioè'
-        ],
-        'DET': [
-            'il', 'lo', 'la', 'gli', 'le', 'un', 'una', 'uno', 'questo', 'quella', 'quel', 'questi'
-        ],
-        'INTJ': [
-            'oh', 'eh', 'ah', 'uff', 'bah', 'mah', 'wow', 'oops', 'accidenti', 'evviva'
-        ],
-        'NOUN': [
-            'zione', 'tà', 'mento', 'ore', 'ista', 'tore', 'trice', 'aggio', 'ezza',
-            'ismo', 'icità', 'ità', 'anza', 'enza', 'itudine', 'logia'
-        ],
-        'NUM': [
-            'uno', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove',
-            'dieci', 'cento', 'mille', 'milione', 'miliardo'
-        ],
-        'PART': [
-            'ci', 'mi', 'ti', 'vi', 'si'
-        ],
-        'PRON': [
-            'noi', 'voi', 'loro', 'egli', 'ella', 'esso'
-        ],
-        'PROPN': [
-            'ini', 'etti', 'one', 'oni', 'ani', 'elli', 'ardo'
-        ],
-        'PUNCT': [
-            '.', ',', ';', ':', '!', '?', '"', '«', '»', '…', '(', ')'
-        ],
-        'SCONJ': [
-            'che', 'perché', 'quando', 'mentre', 'sebbene', 'poiché', 'se', 'nonostante', 'finché', 'dopo che'
-        ],
-        'VERB': [
-            'are', 'ere', 'ire', 'ando', 'endo', 'ato', 'uto', 'ito', 'erei', 'erà', 'avo', 'ono', 'ano', 'iamo'
-        ],
-        'X': [
-            'xxx', '???', '###', '!!!', 'null'
-        ]
-    }
-
-    suffissi = dict.get(state, [])
-
-    if word[0].isupper():
-        word = word.lower()
-        if word in suffissi:
-                return 1
-        elif any(word.endswith(suf) for suf in suffissi):
-            return 1
-
-        if state == 'PROPN':
-            return 1
-        else:
-            return 0
-
-    word = word.lower()
-    suffissi = dict.get(state, [])
-
-    if word in suffissi:
-        return 1
-    elif any(word.endswith(suf) for suf in suffissi):
-        return 1
-
-    if state in ['NOUN', 'VERB']:
-        return 0.5
-    else:
-        return 0
-
-
-def viterbi_suffisso(observations, states, start_p, trans_p, emit_p):
-
-    # Inizializzazione delle strutture dati
-    viterbi = {state: [0.0] * len(observations) for state in states}
-    backpointer = {state: [None] * len(observations) for state in states}
-
-    ## Inizializzazione (primo passo)
-    arr_emit = []
-    for state in states:
-        word = observations[0]
-        if word not in emit_p[state]:
-            emit_prob = check_syntax(word, state)
-        else:
-            emit_prob = emit_p[state][word]
-        arr_emit.append(emit_prob)
-
-    sum_arr_emit = sum(arr_emit)
-    if sum_arr_emit > 1:
-        for emit, state in zip(arr_emit, states):
-            viterbi[state][0] = start_p.get(state, 0) * (emit / sum_arr_emit)
-            backpointer[state][0] = None
-    else:
-        for emit, state in zip(arr_emit, states):
-            viterbi[state][0] = start_p.get(state, 0) * emit
-            backpointer[state][0] = None
-
-    # Ricorsione (passi successivi)
-    for t in range(1, len(observations)):
-        word = observations[t]
-        arr_emit2 = []
-        for current_state in states:
-            if word not in emit_p[current_state]:
-                emit_prob = check_syntax(word, current_state)
-            else:
-                emit_prob = emit_p[current_state][word]
-            arr_emit2.append(emit_prob)
-
-        sum_arr_emit = sum(arr_emit2)
-
-        if sum_arr_emit > 1:
-            for emit, current_state in zip(arr_emit2, states):
-                max_prob = -1.0
-                best_prev_state = None
-                for prev_state in states:
-                    trans_prob = trans_p[prev_state].get(current_state, 0)
-                    prob = viterbi[prev_state][t-1] * trans_prob * (emit / sum_arr_emit)
-
-                    if prob > max_prob:
-                        max_prob = prob
-                        best_prev_state = prev_state
-
-                viterbi[current_state][t] = max_prob
-                backpointer[current_state][t] = best_prev_state
-        else:
-            for emit, current_state in zip(arr_emit2, states):
-                max_prob = -1.0
-                best_prev_state = None
-                for prev_state in states:
-                    trans_prob = trans_p[prev_state].get(current_state, 0)
-                    prob = viterbi[prev_state][t-1] * trans_prob * emit
-
-                    if prob > max_prob:
-                        max_prob = prob
-                        best_prev_state = prev_state
-
-                viterbi[current_state][t] = max_prob
-                backpointer[current_state][t] = best_prev_state
-
-    # Terminazione
-    best_last_state = max(states, key=lambda s: viterbi[s][-1])
-    best_path = [best_last_state]
-    for t in range(len(observations) - 1, 0, -1):
-        best_last_state = backpointer[best_last_state][t]
-        best_path.insert(0, best_last_state)
-
-    return list(zip(observations, best_path))
-
-
-
-
-
-
-
-
-
-def viterbi_vn(observations, states, start_p, trans_p, emit_p):
-    epsilon= 1e-6
-    # Inizializzazione delle strutture dati
-    viterbi = {state: [float('inf')] * len(observations) for state in states}
-    backpointer = {state: [None] * len(observations) for state in states}
-
-    # Inizializzazione (primo passo)
-    for state in states:
-        word = observations[0]
-        if word not in emit_p[state]:
-            emit_prob = emit_p[state].get(word, 0.5 if state in ['NOUN', 'VERB'] else epsilon)
-        else:
-            emit_prob = emit_p[state][word]
-        emit_prob= max(emit_prob,epsilon)
-        start_prob = start_p.get(state, 0.0)
-        start_prob = max(start_prob, epsilon)
-        viterbi[state][0] = (- math.log(start_prob)) + (- math.log(emit_prob))
-        backpointer[state][0] = None
-
-    # Ricorsione (passi successivi)
-    for t in range(1, len(observations)):
-        word = observations[t]
-        for current_state in states:
-            max_prob = float('inf')
-            best_prev_state = None
-            if word not in emit_p[current_state]:
-                emit_prob = emit_p[current_state].get(word, 0.5 if current_state in ['NOUN', 'VERB'] else epsilon)
-            else:
-                emit_prob = emit_p[current_state][word]
-            emit_prob= max(emit_prob,epsilon)
-            for prev_state in states:
-                trans_prob = trans_p[prev_state].get(current_state, 0)
-                trans_prob = max(trans_prob, epsilon)
-                prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
-
-                if prob < max_prob:
-                    max_prob = prob
-                    best_prev_state = prev_state
-
-            viterbi[current_state][t] = max_prob
-            backpointer[current_state][t] = best_prev_state
-
-    # Terminazione (trova lo stato finale migliore)
-    best_last_state = min(states, key=lambda s: viterbi[s][-1])
-
-    # Ricostruzione del percorso all'indietro
-    best_path = [best_last_state]
-    for t in range(len(observations)-1, 0, -1):
-        best_last_state = backpointer[best_last_state][t]
-        best_path.insert(0, best_last_state)
-
-    return list(zip(observations, best_path))
-
-def viterbi_with_develop(observations, states, start_p, trans_p, emit_p, distribution_prob):
-    # Inizializzazione delle strutture dati
-    epsilon= 1e-6
-    viterbi = {state: [float('inf')] * len(observations) for state in states}
-    backpointer = {state: [None] * len(observations) for state in states}
-
-    # Inizializzazione (primo passo)
-    for state in states:
-        word = observations[0]
-        if word not in emit_p[state]:
-            emit_prob = distribution_prob[state]
-        else:
-            emit_prob = emit_p[state][word]
-
-        emit_prob= max(emit_prob,epsilon)
-        start_prob = start_p.get(state, 0.0)
-        start_prob = max(start_prob, epsilon)
-        viterbi[state][0] = (- math.log(start_prob)) + (- math.log(emit_prob))
-        backpointer[state][0] = None
-
-    # Ricorsione (passi successivi)
-    for t in range(1, len(observations)):
-        word = observations[t]
-        for current_state in states:
-            max_prob = float('inf')
-            best_prev_state = None
-            if word not in emit_p[current_state]:
-                emit_prob = distribution_prob[current_state]
-            else:
-                emit_prob = emit_p[current_state][word]
-            emit_prob= max(emit_prob,epsilon)
-            for prev_state in states:
-                trans_prob = trans_p[prev_state].get(current_state, 0)
-                trans_prob = max(trans_prob, epsilon)
-                prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
-
-                if prob < max_prob:
-                    max_prob = prob
-                    best_prev_state = prev_state
-
-            viterbi[current_state][t] = max_prob
-            backpointer[current_state][t] = best_prev_state
-
-    # Terminazione (trova lo stato finale migliore)
-    best_last_state = min(states, key=lambda s: viterbi[s][-1])
-
-    # Ricostruzione del percorso all'indietro
-    best_path = [best_last_state]
-    for t in range(len(observations)-1, 0, -1):
-        best_last_state = backpointer[best_last_state][t]
-        best_path.insert(0, best_last_state)
-
-    return list(zip(observations, best_path))
-
-
-def viterbi_uniform(observations, states, start_p, trans_p, emit_p):
-    # Inizializzazione delle strutture dati
-    epsilon= 1e-6
-    viterbi = {state: [float('inf')] * len(observations) for state in states}
-    backpointer = {state: [None] * len(observations) for state in states}
-
-    # Inizializzazione (primo passo)
-    for state in states:
-        word = observations[0]
-        if word not in emit_p[state]:
-            emit_prob = 1/len(states)
-        else:
-            emit_prob = emit_p[state][word]
-
-        emit_prob = max(emit_prob, epsilon)
-        start_prob = start_p.get(state, 0.0)
-
-        start_prob = max(start_prob, epsilon)
-        viterbi[state][0] = math.log(start_prob) + math.log(emit_prob)
-        backpointer[state][0] = None
-
-    # Ricorsione (passi successivi)
-    for t in range(1, len(observations)):
-        word = observations[t]
-        for current_state in states:
-            max_prob = float('inf')
-            best_prev_state = None
-            if word not in emit_p[current_state]:
-                emit_prob = 1/len(states)
-            else:
-                emit_prob = emit_p[current_state][word]
-
-            emit_prob = max(emit_prob, epsilon)
-
-            for prev_state in states:
-                trans_prob = trans_p[prev_state].get(current_state, 0)
-                trans_prob = max(trans_prob, epsilon)
-                prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) +(- math.log(emit_prob))
-
-                if prob < max_prob:
-                    max_prob = prob
-                    best_prev_state = prev_state
-            viterbi[current_state][t] = max_prob
-            backpointer[current_state][t] = best_prev_state
-    # Terminazione (trova lo stato finale migliore)
-    best_last_state = min(states, key=lambda s: viterbi[s][-1])
-
-    # Ricostruzione del percorso all'indietro
-    best_path = [best_last_state]
-    for t in range(len(observations)-1, 0, -1):
-        best_last_state = backpointer[best_last_state][t]
-        best_path.insert(0, best_last_state)
-
-    return list(zip(observations, best_path))
 
 
 
@@ -486,82 +70,6 @@ def count_words(data):
 
 
 
-#FUNZIONA
-#calcola le probabilità di ogni tag di essere associato ad una certa parola
-#[['ADV' 'Non' '10' '0.009624639076034648']
-#['ADV' 'qui' '17' '0.016361886429258902']
-# .....
-#['PART' 'Oh' '3' '0.42857142857142855']
-#['PART' 'O' '4' '0.5714285714285714']]
-def calc_prob_emissione(data, tags):
-    # Lista che conterrà i risultati finali
-    result = []
-
-    # Tutte le parole uniche nel dataset
-    all_words = np.unique(data[:, 0])
-    # Creiamo un dizionario con i tag e il loro numero totale di occorrenze
-    total_tags = {tag[0]: int(tag[1]) for tag in tags}
-
-    # Inizializza un contatore per tutte le possibili coppie (word, tag)
-    all_pairs_counts = Counter({(word, tag[0]): 0 for word in all_words for tag in tags})
-
-    # Aggiorna il contatore con le occorrenze effettive
-    for word, tag in zip(data[:, 0], data[:, 1]):
-        all_pairs_counts[(word, tag)] += 1
-
-    # Ora calcoliamo la probabilità per tutte le coppie
-    for tag in total_tags:  # ciclo su tutti i tag
-        total_tag = total_tags[tag]  # Numero totale di occorrenze del tag corrente
-
-        # Per ogni parola, calcoliamo la probabilità di quella parola rispetto al tag corrente
-        for word in all_words:
-            count = all_pairs_counts[(word, tag)]  # Conta le occorrenze della coppia (word, tag)
-            prob = count / total_tag if total_tag > 0 else 0.0  # Calcola la probabilità
-
-            # Aggiungi la riga al risultato
-            result.append([word, tag, count, prob])
-
-    # Converti la lista di risultati in un array NumPy
-    result_array = np.array(result, dtype=object)
-
-    return result_array
-
-
-
-
-
-#FUNZIONA
-#calcola la probabilità che un tag occorra dato il tag precedente
-#se è la prima parola di una frase allora il tag prima sarà S0
-#[['ADV', 'ADV', 78, 0.06200317965023847],
-# .....
-#['SYM', 'SYM', 0, 0.0]]
-def calc_prob_transizione(sentences, tags):
-    tags = np.vstack((tags, ["S0", len(sentences), '0']))
-
-    #print(tags)
-    pairs = list(itertools.product([item[0] for item in tags], repeat = 2)) #crea tutte le possibili coppie di tag
-    pairs = [[p[0], p[1], 0] for p in pairs]
-
-    for s in sentences: #stringa di tag
-        for element in s.split(): #tag singolo
-            if element != "S0": #se non è il primo elemento
-                #(before, element) per questa coppia devo fare +1 in pairs
-                for p in pairs: #conta quante volte è presente la coppia x, y nel corpus
-                    if p[0] == before and p[1] == element:
-                        p[2] += 1
-                        break
-            before = element
-    result = []
-    for pair in pairs:
-        total_tag = tags[tags[:, 0] == pair[0]][0, 1].astype(int)
-        prob = pair[2] / total_tag
-        result.append(prob)
-
-    for pair, prob in zip(pairs, result):
-        pair.append(prob)
-    return np.array(pairs)
-
 
 def prob_dev_distribution(dev, tags):
     result = {}
@@ -586,51 +94,10 @@ def prob_dev_distribution(dev, tags):
     return result
 
 
-def convert_table(table):
-    trans_p = defaultdict(dict)
-    #print(table)
-    for x, y, count, prob in table:
-        #print(x, y,count,prob)
-        trans_p[x][y] = prob
-    return dict(trans_p)
-
-def convert_table_emissione(table):
-    trans_p = defaultdict(dict)
-    for x, y, count, prob in table:
-        trans_p[y][x] = prob
-    return dict(trans_p)
-
-# modifica il formato dei dati
-def format_dict(data):
-    converted_dict = {}
-
-    for outer_key, inner_dict in data.items():
-
-        # Converti le chiavi da np.str_ a stringhe
-        outer_key_str = str(outer_key)
-        inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
-
-        # Assegna il dizionario interno al tag esterno
-        converted_dict[outer_key_str] = inner_dict_converted
-
-    return converted_dict
 
 
 
-def start_prob(numpy_dict):
-    converted_dict = {}
 
-    for outer_key, inner_dict in numpy_dict.items():
-        # Converti le chiavi da np.str_ a stringhe
-        outer_key_str = str(outer_key)
-        inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
-
-        # Assegna il dizionario interno al tag esterno
-        converted_dict[outer_key_str] = inner_dict_converted
-    # Ora estrai solo i valori associati a 'S0', rimuovendo 'S0' stesso se è presente nei tag
-    start_probs = {tag: prob for tag, prob in converted_dict['S0'].items() if tag != 'S0'}
-
-    return start_probs
 
 
 #FUNZIONA
@@ -642,19 +109,7 @@ def fn_count_tags(data):
     tags = [x[1] for x in data]
     return calc_prob(tags)
 
-# calcola l'accuratezza dei tag
-# input predict_seq: sequenza di tutti i tag predetti
-# input true_seq: sequenza di tutti i veri tag
-# output: accuratezza
-def calc_accuracy(predict_seq, true_seq):
 
-    predict = [str(tag) for sentence in predict_seq for _, tag in sentence] # estrae dalla sequenza predetta tutti i tag e li mette in un vettore
-
-    true = [tag for s in true_seq for tag in s.item().split() if tag != 'S0'] # estrae dalla vera sequenza tutti i tag e li mette in un vettore
-
-    correct = sum(1 for p, t in zip(predict, true) if p == t) # somma 1 per ogni tag corretto
-
-    return correct / len(true) # calcola l'accuratezza (# tag corretti / # totale di tag)
 
 def calculate_accuracy(predicted_seq, true_seq):
     # Filtriamo il tag S0 e estraiamo solo i tag
@@ -691,9 +146,10 @@ def prob_words_tag(data, tags):
     return mat
 
 
-def baseline_tagger(words, tags, dict):
+
+def baseline_tagger(words, dict):
+
     state = []  # lista dei tag assegnati parola per parola
-    tags_list = tags[:, 0]  # tutti i tag  # i tag sono le colonne nella matrice
 
     for word in words:  # per ogni parola da taggare
         if word in dict.index:
@@ -707,88 +163,18 @@ def baseline_tagger(words, tags, dict):
 
 
 
-def tagging(train, train_tags, test_tags, test_words):
-
-    count_tags = fn_count_tags(train)
-    #trasforma i tag in un lista di tag
-    tags_list = count_tags[:, 0].tolist()
-    #tags_list.append('S0')     #aggiunge S0 ai tag (17 in totale)
-
-    #calcola le probabilità di emissione
-    prob_emissione = calc_prob_emissione(train, count_tags)
-
-    #calcola le probabilità di transizione
-    prob_transizione = calc_prob_transizione(train_tags,count_tags)
-    #print(prob_transizione)
-
-    #scrivere meglio
-    prob_transizione_after = convert_table(prob_transizione)
-    transition_dict = format_dict(prob_transizione_after)
-
-    prob_emissione_after = convert_table_emissione(prob_emissione)
-    emission_dict = format_dict(prob_emissione_after)
-
-
-    start = start_prob(prob_transizione_after)
-    tags_list_new = count_tags[:, 0].tolist()
-
-    predicted_tags = []
-
-    for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi_vn(sentence.split(), tags_list_new, start, transition_dict, emission_dict)
-        print(sentence.split())
-        acc = calculate_accuracy(tagged_seq, test_tags[i])
-        print(acc)
-        predicted_tags.append(tagged_seq)
-
-    return calc_accuracy(predicted_tags, test_tags)
-
-def tagging_with_develop(train, train_tags, test_tags, test_words,dev):
-    count_tags = fn_count_tags(train)
-    #trasforma i tag in un lista di tag
-    tags_list = count_tags[:, 0].tolist()
-    #tags_list.append('S0')     #aggiunge S0 ai tag (17 in totale)
-
-    #calcola le probabilità di emissione
-    prob_emissione = calc_prob_emissione(train, count_tags)
-
-    #calcola le probabilità di transizione
-    prob_transizione = calc_prob_transizione(train_tags,count_tags)
-
-    #scrivere meglio
-    prob_transizione_after = convert_table(prob_transizione)
-    transition_dict = format_dict(prob_transizione_after)
-
-    prob_emissione_after = convert_table_emissione(prob_emissione)
-    emission_dict = format_dict(prob_emissione_after)
-    start = start_prob(prob_transizione_after)
-    tags_list_new = count_tags[:, 0].tolist()
-
-
-    distribution_prob_unknown= prob_dev_distribution(dev, tags_list)
-    predicted_tags = []
-
-    for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi_with_develop(sentence.split(), tags_list_new, start, transition_dict, emission_dict, distribution_prob_unknown)
-        #acc = calculate_accuracy(tagged_seq, test_tags[i])
-        #print(acc)
-        predicted_tags.append(tagged_seq)
-
-
-    return calc_accuracy(predicted_tags, test_tags)
-
 def evaluate_baseline(train, train_tags, test_tags, test_words):
 
-    # conta i tag
+    # Conta i tag
     count_tags = fn_count_tags(train)
     tags_list = count_tags[:, 0].tolist()
     tags_list.append('S0')  # aggiunge S0
 
-    # calcola le probabilità di emissione
+    # Calcola le probabilità di emissione
     dict_word_tag = prob_words_tag(train, count_tags)
     predicted_tags = []
     for sentence in test_words:
-        tagged_seq = baseline_tagger(sentence.split(), count_tags, dict_word_tag)
+        tagged_seq = baseline_tagger(sentence.split(), dict_word_tag)
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)
@@ -818,6 +204,7 @@ def evaluate_baseline(train, train_tags, test_tags, test_words):
 
 
 
+# Calcola le probabilità di ogni tag di essere associato ad una certa parola
 def calc_emission_probability(train, tags):
 
     # Tutte le parole uniche
@@ -831,76 +218,112 @@ def calc_emission_probability(train, tags):
     for word, tag in zip(train[:, 0], train[:, 1]):
         all_pairs_counts[(word, tag)] += 1
 
-    # Calcola le probabilità
-    emission_table = []
+    # Crea direttamente il dizionario emissione
+    emission_dict = defaultdict(dict)
     for tag in total_tags:
         total_tag = total_tags[tag]
         for word in all_words:
             count = all_pairs_counts[(word, tag)]
             prob = count / total_tag if total_tag > 0 else 0.0
-            emission_table.append([word, tag, count, prob])
-
-    # Converte in dizionario nested: {tag: {word: prob}}
-    emission_dict = defaultdict(dict)
-    for word, tag, count, prob in emission_table:
-        emission_dict[str(tag)][str(word)] = float(prob)
+            emission_dict[tag][word] = prob
 
     return dict(emission_dict)
 
 
 
+# Calcola la probabilità che un tag occorra dato il tag precedente
+# Se è la prima parola di una frase allora il tag prima sarà S0
 def calc_transition_probability(train_tags, tags):
+
     # Aggiungiamo "S0" come tag iniziale
     tag_counts = np.vstack((tags, ["S0", len(train_tags), '0']))
     all_tags = [tag[0] for tag in tag_counts]
 
-    # Creiamo tutte le possibili coppie di tag
-    tag_pairs = [[x, y, 0] for x, y in itertools.product(all_tags, repeat=2)]
+    # Inizializza dizionario delle transizioni
+    trans_counts = defaultdict(lambda: defaultdict(int))
 
-    # Conta le occorrenze di ogni coppia nel corpus
+    # Conta le occorrenze delle coppie (prev_tag -> curr_tag)
     for sentence in train_tags:
         before = "S0"
         for tag in sentence.split():
-            for pair in tag_pairs:
-                if pair[0] == before and pair[1] == tag:
-                    pair[2] += 1
-                    break
+            trans_counts[before][tag] += 1
             before = tag
 
-    # Calcolo probabilità per ogni coppia (prev_tag, curr_tag)
-    result = []
-    for pair in tag_pairs:
-        total_prev_tag = int(tag_counts[tag_counts[:, 0] == pair[0]][0, 1])
-        prob = pair[2] / total_prev_tag if total_prev_tag > 0 else 0.0
-        result.append(prob)
-
-    # Costruzione dizionario finale nested: {prev_tag: {curr_tag: prob}}
+    # Calcola le probabilità direttamente
     trans_dict = defaultdict(dict)
-    for (prev, curr, count), prob in zip(tag_pairs, result):
-        trans_dict[str(prev)][str(curr)] = float(prob)
+    for prev_tag in all_tags:
+        total_prev_tag = int(tag_counts[tag_counts[:, 0] == prev_tag][0, 1])
+        for curr_tag in all_tags:
+            count = trans_counts[prev_tag].get(curr_tag, 0)
+            prob = count / total_prev_tag if total_prev_tag > 0 else 0.0
+            trans_dict[prev_tag][curr_tag] = prob
 
     return dict(trans_dict)
 
 
 
+# Calcola le probabilità ........................................................................................
+def start_prob(numpy_dict):
+    converted_dict = {}
+
+    for outer_key, inner_dict in numpy_dict.items():
+        # Converti le chiavi da np.str_ a stringhe
+        outer_key_str = str(outer_key)
+        inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
+
+        # Assegna il dizionario interno al tag esterno
+        converted_dict[outer_key_str] = inner_dict_converted
+    # Ora estrai solo i valori associati a 'S0', rimuovendo 'S0' stesso se è presente nei tag
+    start_probs = {tag: prob for tag, prob in converted_dict['S0'].items() if tag != 'S0'}
+
+    return start_probs
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Calcola l'accuratezza dei tag
+# input predict_seq: sequenza di tutti i tag predetti
+# input true_seq: sequenza di tutti i veri tag
+# output: accuratezza
+def calc_accuracy(predict_seq, true_seq):
+
+    predict = [str(tag) for sentence in predict_seq for _, tag in sentence] # estrae dalla sequenza predetta tutti i tag e li mette in un vettore
+
+    true = [tag for s in true_seq for tag in s.item().split() if tag != 'S0'] # estrae dalla vera sequenza tutti i tag e li mette in un vettore
+
+    correct = sum(1 for p, t in zip(predict, true) if p == t) # somma 1 per ogni tag corretto
+
+    return correct / len(true) # calcola l'accuratezza (# tag corretti / # totale di tag)
+
+
+
 def tagging_n(train, train_tags, test_tags, test_words):
 
-    # conta quanti tag singoli compaiono nel training set
+    # Conta quanti tag singoli compaiono nel training set
     count_tags = fn_count_tags(train)
     tags_list = count_tags[:, 0].tolist()
 
-    # calcola probabilità di emissione e transizione
+    # Calcola probabilità di emissione e transizione
     em_prob = calc_emission_probability(train, count_tags)
     tr_prob = calc_transition_probability(train_tags, count_tags)
 
-    # calcola probabilità della prima parola della frase
+    # Calcola probabilità della prima parola della frase
     start = start_prob(tr_prob)
 
     predicted_tags = []
 
     for i, sentence in enumerate(test_words):
 
-        tagged_seq = viterbi_n(sentence.split(), tags_list, start, tr_prob, em_prob)
+        tagged_seq = viterbi.viterbi_n(sentence.split(), tags_list, start, tr_prob, em_prob)
 
         #acc = calculate_accuracy(tagged_seq, test_tags[i])
         #print(acc)
@@ -911,8 +334,114 @@ def tagging_n(train, train_tags, test_tags, test_words):
 
 
 
+def tagging_nv(train, train_tags, test_tags, test_words):
+
+    # Conta quanti tag singoli compaiono nel training set
+    count_tags = fn_count_tags(train)
+    tags_list = count_tags[:, 0].tolist()
+
+    # Calcola probabilità di emissione e transizione
+    em_prob = calc_emission_probability(train, count_tags)
+    tr_prob = calc_transition_probability(train_tags, count_tags)
+
+    # Calcola probabilità della prima parola della frase
+    start = start_prob(tr_prob)
+
+    predicted_tags = []
+
+    for i, sentence in enumerate(test_words):
+
+        tagged_seq = viterbi.viterbi_vn(sentence.split(), tags_list, start, tr_prob, em_prob)
+
+        #acc = calculate_accuracy(tagged_seq, test_tags[i])
+        #print(acc)
+
+        predicted_tags.append(tagged_seq)
+
+    return calc_accuracy(predicted_tags, test_tags)
 
 
 
+def tagging_dev(train, train_tags, test_tags, test_words, dev):
+
+    # Conta quanti tag singoli compaiono nel training set
+    count_tags = fn_count_tags(train)
+    tags_list = count_tags[:, 0].tolist()
+
+    # Calcola probabilità di emissione e transizione
+    em_prob = calc_emission_probability(train, count_tags)
+    tr_prob = calc_transition_probability(train_tags, count_tags)
+
+    # Calcola probabilità della prima parola della frase
+    start = start_prob(tr_prob)
+
+    # Calcola la distribuzione delle parole che compaiono una sola volta nel development set
+    dev_dist = prob_dev_distribution(dev, tags_list)
+
+    predicted_tags = []
+
+    for i, sentence in enumerate(test_words):
+        tagged_seq = viterbi.viterbi_dev(sentence.split(), tags_list, start, tr_prob, em_prob, dev_dist)
+
+        # acc = calculate_accuracy(tagged_seq, test_tags[i])
+        # print(acc)
+
+        predicted_tags.append(tagged_seq)
+
+    return calc_accuracy(predicted_tags, test_tags)
 
 
+
+def tagging_uniform(train, train_tags, test_tags, test_words):
+
+    # Conta quanti tag singoli compaiono nel training set
+    count_tags = fn_count_tags(train)
+    tags_list = count_tags[:, 0].tolist()
+
+    # Calcola probabilità di emissione e transizione
+    em_prob = calc_emission_probability(train, count_tags)
+    tr_prob = calc_transition_probability(train_tags, count_tags)
+
+    # Calcola probabilità della prima parola della frase
+    start = start_prob(tr_prob)
+
+    predicted_tags = []
+
+    for i, sentence in enumerate(test_words):
+
+        tagged_seq = viterbi.viterbi_uniform(sentence.split(), tags_list, start, tr_prob, em_prob)
+
+        #acc = calculate_accuracy(tagged_seq, test_tags[i])
+        #print(acc)
+
+        predicted_tags.append(tagged_seq)
+
+    return calc_accuracy(predicted_tags, test_tags)
+
+
+
+def tagging_syntax(train, train_tags, test_tags, test_words):
+
+    # Conta quanti tag singoli compaiono nel training set
+    count_tags = fn_count_tags(train)
+    tags_list = count_tags[:, 0].tolist()
+
+    # Calcola probabilità di emissione e transizione
+    em_prob = calc_emission_probability(train, count_tags)
+    tr_prob = calc_transition_probability(train_tags, count_tags)
+
+    # Calcola probabilità della prima parola della frase
+    start = start_prob(tr_prob)
+
+    predicted_tags = []
+
+    for i, sentence in enumerate(test_words):
+
+        tagged_seq = viterbi.viterbi_sintax(sentence.split(), tags_list, start, tr_prob, em_prob)
+
+        #acc = calculate_accuracy(tagged_seq, test_tags[i])
+        #print(acc)
+
+        predicted_tags.append(tagged_seq)
+
+    return calc_accuracy(predicted_tags, test_tags)
