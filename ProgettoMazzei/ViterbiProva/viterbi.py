@@ -4,6 +4,8 @@ import math
 # input: observations
 def viterbi_n(sentence, tags, start_p, tr, em):
 
+    epsilon = 1e-6
+
     # Inizializzazione delle strutture dati
     viterbi = {state: [0.0] * len(sentence) for state in tags}
     backpointer = {state: [None] * len(sentence) for state in tags}
@@ -11,11 +13,15 @@ def viterbi_n(sentence, tags, start_p, tr, em):
     # Inizializzazione (primo passo)
     for state in tags:
         word = sentence[0]
+
         if word not in em[state]:
             emit_prob = em[state].get(word, 1 if state in 'NOUN' else 0.0)
         else:
             emit_prob = em[state][word]
-        viterbi[state][0] = start_p.get(state, 0) * emit_prob
+
+        emit_prob = max(emit_prob, epsilon)
+        start_prob = max(start_p.get(state, 0.0), epsilon)
+        viterbi[state][0] = (- math.log(start_prob)) + (- math.log(emit_prob))
         backpointer[state][0] = None
 
     # Ricorsione (passi successivi)
@@ -23,7 +29,7 @@ def viterbi_n(sentence, tags, start_p, tr, em):
         word = sentence[t]
 
         for current_state in tags:
-            max_prob = -1.0
+            max_prob = float('inf')
             best_prev_state = None
 
             if word not in em[current_state]:
@@ -31,11 +37,14 @@ def viterbi_n(sentence, tags, start_p, tr, em):
             else:
                 emit_prob = em[current_state][word]
 
+            emit_prob = max(emit_prob, epsilon)
+
             for prev_state in tags:
                 trans_prob = tr[prev_state].get(current_state, 0)
-                prob = viterbi[prev_state][t-1] * trans_prob * emit_prob
+                trans_prob = max(trans_prob, epsilon)
+                prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob > max_prob:
+                if prob < max_prob:
                     max_prob = prob
                     best_prev_state = prev_state
 
@@ -60,7 +69,7 @@ def viterbi_n(sentence, tags, start_p, tr, em):
 
 def viterbi_vn(sentence, tags, start_p, tr, em):
 
-    epsilon= 1e-6
+    epsilon  = 1e-6
 
     # Inizializzazione delle strutture dati
     viterbi = {state: [float('inf')] * len(sentence) for state in tags}
@@ -75,7 +84,7 @@ def viterbi_vn(sentence, tags, start_p, tr, em):
         else:
             emit_prob = em[state][word]
 
-        emit_prob= max(emit_prob,epsilon)
+        emit_prob = max(emit_prob,epsilon)
         start_prob = start_p.get(state, 0.0)
         start_prob = max(start_prob, epsilon)
         viterbi[state][0] = (- math.log(start_prob)) + (- math.log(emit_prob))

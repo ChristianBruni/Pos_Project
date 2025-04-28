@@ -1,6 +1,5 @@
 import function as fn
 import read_file as rf
-import memm as mt
 import numpy as np
 
 # Lettura dei file
