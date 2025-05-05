@@ -259,7 +259,7 @@ def prob_dev_distribution(dev, tags):
 
     tag_counts = Counter(tag for word, tag in dev if word in single_words)
 
-    # 4. Calcola la distribuzione: P(tag | parola singola)
+    # Calcola la distribuzione: P(tag | parola singola)
     for tag in tags:
         result[tag] = tag_counts.get(tag, 0) / total_single if total_single > 0 else 0
 
