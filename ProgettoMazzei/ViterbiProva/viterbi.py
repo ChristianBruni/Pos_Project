@@ -1,12 +1,10 @@
 import math
 
-from fontTools.misc.bezierTools import epsilon
-
 
 # Algoritmo di viterbi con smoothing NOUN
 def viterbi_n(sentence, tags, start_p, tr, em):
 
-    epsilon = 1e-10
+    epsilon = 1e-12
 
     # Inizializzazione delle strutture dati
     viterbi = {state: [0.0] * len(sentence) for state in tags}
@@ -71,7 +69,7 @@ def viterbi_n(sentence, tags, start_p, tr, em):
 # Algoritmo di viterbi con smoothing NOUN + VERB
 def viterbi_vn(sentence, tags, start_p, tr, em):
 
-    epsilon  = 1e-10
+    epsilon  = 1e-12
 
     # Inizializzazione delle strutture dati
     viterbi = {state: [float('inf')] * len(sentence) for state in tags}
@@ -136,7 +134,7 @@ def viterbi_vn(sentence, tags, start_p, tr, em):
 # Algoritmo di viterbi con smoothing development set
 def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
 
-    epsilon = 1e-10
+    epsilon = 1e-12
 
     # Inizializzazione delle strutture dati
     viterbi = {state: [float('inf')] * len(sentence) for state in tags}
@@ -200,7 +198,7 @@ def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
 # Algoritmo di viterbi con smoothing uniform distribution
 def viterbi_uniform(sentence, tags, start_p, tr, em):
 
-    epsilon = 1e-10
+    epsilon = 1e-12
 
     # Inizializzazione delle strutture dati
     viterbi = {state: [float('inf')] * len(sentence) for state in tags}
@@ -219,7 +217,7 @@ def viterbi_uniform(sentence, tags, start_p, tr, em):
         start_prob = start_p.get(state, 0.0)
 
         start_prob = max(start_prob, epsilon)
-        viterbi[state][0] = math.log(start_prob) + math.log(emit_prob)
+        viterbi[state][0] = (- math.log(start_prob)) +(- math.log(emit_prob))
         backpointer[state][0] = None
 
     # Ricorsione (passi successivi)
@@ -240,7 +238,7 @@ def viterbi_uniform(sentence, tags, start_p, tr, em):
             for prev_state in tags:
                 trans_prob = tr[prev_state].get(current_state, 0)
                 trans_prob = max(trans_prob, epsilon)
-                prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) +(- math.log(emit_prob))
+                prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
                 if prob < max_prob:
                     max_prob = prob
@@ -266,79 +264,10 @@ def viterbi_uniform(sentence, tags, start_p, tr, em):
 def check_syntax(word, tag):
 
 
-    #dict = {
-    #    'ADJ': [
-    #        'oso', 'osa', 'ile', 'ente', 'ante', 'ivo', 'iva', 'esco', 'esca', 'ario', 'aria', 'aceo', 'acea', 'ico', 'ica', 'ino', 'ina'
-    #    ],
-    #    'ADP': [
-    #        'di', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra'
-    #    ],
-    #    'ADV': [
-    #        'mente', 'qui', 'lì', 'là', 'via', 'giù', 'sù', 'ora', 'sempre', 'spesso', 'mai'
-    #    ],
-    #    'AUX': [
-    #        'sti', 'rà', 'rò', 'rebbe', 'fui', 'sarà', 'sia'
-    #    ],
-    #    'CCONJ': [
-    #        'ma', 'oppure', 'però', 'bensì', 'infatti', 'cioè'
-    #    ],
-    #    'DET': [
-    #        'il', 'lo', 'la', 'gli', 'le', 'un', 'una', 'uno', 'questo', 'quella', 'quel', 'questi'
-    #    ],
-    #    'INTJ': [
-    #        'oh', 'eh', 'ah', 'uff', 'bah', 'mah', 'wow', 'oops', 'accidenti', 'evviva'
-    #    ],
-    #    'NOUN': [
-    #        'zione', 'tà', 'mento', 'ore', 'ista', 'tore', 'trice', 'aggio', 'ezza', 'ismo', 'icità', 'ità', 'anza', 'enza', 'itudine', 'logia'
-    #    ],
-    #    'NUM': [
-    #        'uno', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove', 'dieci', 'cento', 'mille', 'milione', 'miliardo'
-    #    ],
-    #    'PART': [
-    #        'ci', 'mi', 'ti', 'vi', 'si'
-    #    ],
-    #    'PRON': [
-    #        'noi', 'voi', 'loro', 'egli', 'ella', 'esso'
-    #    ],
-    #    'PROPN': [
-    #        'ini', 'etti', 'one', 'oni', 'ani', 'elli', 'ardo'
-    #    ],
-    #    'PUNCT': [
-    #        '.', ',', ';', ':', '!', '?', '"', '«', '»', '…', '(', ')'
-    #    ],
-    #    'SCONJ': [
-    #        'che', 'perché', 'quando', 'mentre', 'sebbene', 'poiché', 'se', 'nonostante', 'finché', 'dopo che'
-    #    ],
-    #    'VERB': [
-    #        'are', 'ere', 'ire', 'ando', 'endo', 'ato', 'uto', 'ito', 'erei', 'erà', 'avo', 'ono', 'ano', 'iamo'
-    #    ],
-    #    'X': [
-    #        'xxx', '???', '###', '!!!', 'null'
-    #    ]
-    #}
-
     dict = {
         'ADJ': [
             'ale', 'ambulo', 'ario', 'bile', 'errimo', 'ese', 'evole', 'frago', 'fugo',
             'ico', 'issimo', 'oso', 'ota', 'oto', 'vago', 'tivo', 'torio'
-        ],
-        'ADP': [
-            'di', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra'
-        ],
-        'ADV': [
-            'mente', 'oni'
-        ],
-        'AUX': [
-            'sti', 'rà', 'rò', 'rebbe', 'fui', 'sarà', 'sia'
-        ],
-        'CCONJ': [
-            'ma', 'oppure', 'però', 'bensì', 'infatti', 'cioè'
-        ],
-        'DET': [
-            'il', 'lo', 'la', 'gli', 'le', 'un', 'una', 'uno', 'questo', 'quella', 'quel', 'questi'
-        ],
-        'INTJ': [
-            'oh', 'eh', 'ah', 'uff', 'bah', 'mah', 'wow', 'oops', 'accidenti', 'evviva'
         ],
         'NOUN': [
             'accio', 'aggine', 'aggio', 'aglia', 'aio', 'ame', 'ano', 'anza', 'asco', 'astro',
@@ -347,29 +276,11 @@ def check_syntax(word, tag):
             'one', 'osi', 'ota', 'oto', 'otto', 'tore', 'tura', 'uccio', 'ucolo', 'ume', 'uto',
             'uzzo', 'zione'
         ],
-        'NUM': [
-            'uno', 'due', 'tre', 'quattro', 'cinque', 'sei', 'sette', 'otto', 'nove', 'dieci', 'cento', 'mille', 'milione', 'miliardo'
-        ],
-        'PART': [
-            'ci', 'mi', 'ti', 'vi', 'si'
-        ],
-        'PRON': [
-            'noi', 'voi', 'loro', 'egli', 'ella', 'esso'
-        ],
-        'PROPN': [
-            'ini', 'etti', 'one', 'oni', 'ani', 'elli', 'ardo'
-        ],
         'PUNCT': [
             '.', ',', ';', ':', '!', '?', '"', '«', '»', '…', '(', ')'
         ],
-        'SCONJ': [
-            'che', 'perché', 'quando', 'mentre', 'sebbene', 'poiché', 'se', 'nonostante', 'finché', 'dopo che'
-        ],
         'VERB': [
             'are', 'arsi', 'ere', 'ersi', 'arre', 'orre', 'orsi', 'urre', 'ursi', 'ire', 'irsi'
-        ],
-         'X': [
-            'xxx', '???', '###', '!!!', 'null'
         ]
     }
 
@@ -398,7 +309,7 @@ def check_syntax(word, tag):
 # Algoritmo di viterbi con smoothing basato sulla sintassi
 def viterbi_sintax(sentence, tags, start_p, tr, em):
 
-    epsilon = 1e-10
+    epsilon = 1e-12
 
     # Inizializzazione delle strutture dati
     viterbi = {state: [float('inf')] * len(sentence) for state in tags}

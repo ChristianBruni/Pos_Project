@@ -200,6 +200,8 @@ def calc_accuracy(predict_seq, true_seq):
 
 
 
+
+
 def tagging_n(train, train_tags, test_tags, test_words):
 
     # Conta quanti tag singoli compaiono nel training set
@@ -331,7 +333,7 @@ def tagging_syntax(train, train_tags, test_tags, test_words):
 
     predicted_tags = []
 
-    for i, sentence in enumerate(test_words):
+    for sentence in test_words:
         tagged_seq = viterbi.viterbi_sintax(sentence.split(), tags_list, start, tr_prob, em_prob)
         predicted_tags.append(tagged_seq)
 
