@@ -28,6 +28,7 @@ def fn_count_tags(data):
 
 
 def prob_words_tag(data, tags):
+
     parole = np.unique(data[:, 0])   # tutte le parole uniche
     tags_list = tags[:, 0]  # tutti i tag
 
@@ -66,12 +67,10 @@ def baseline_tagger(words, dict):
 
 
 
-def evaluate_baseline(train, train_tags, test_tags, test_words):
+def tagging_baseline(train, test_tags, test_words):
 
     # Conta i tag
     count_tags = fn_count_tags(train)
-    tags_list = count_tags[:, 0].tolist()
-    tags_list.append('S0')  # aggiunge S0
 
     # Calcola le probabilità di emissione
     dict_word_tag = prob_words_tag(train, count_tags)
@@ -166,8 +165,9 @@ def calc_transition_probability(train_tags, tags):
 
 
 
-# Calcola le probabilità ........................................................................................
-def start_prob(numpy_dict):
+# Calcola le probabilità della prima parola della frase
+def calc_start_probability(numpy_dict):
+
     converted_dict = {}
 
     for outer_key, inner_dict in numpy_dict.items():
@@ -177,6 +177,7 @@ def start_prob(numpy_dict):
 
         # Assegna il dizionario interno al tag esterno
         converted_dict[outer_key_str] = inner_dict_converted
+
     # Ora estrai solo i valori associati a 'S0', rimuovendo 'S0' stesso se è presente nei tag
     start_probs = {tag: prob for tag, prob in converted_dict['S0'].items() if tag != 'S0'}
 
@@ -200,8 +201,6 @@ def calc_accuracy(predict_seq, true_seq):
 
 
 
-
-
 def tagging_n(train, train_tags, test_tags, test_words):
 
     # Conta quanti tag singoli compaiono nel training set
@@ -213,7 +212,7 @@ def tagging_n(train, train_tags, test_tags, test_words):
     tr_prob = calc_transition_probability(train_tags, count_tags)
 
     # Calcola probabilità della prima parola della frase
-    start = start_prob(tr_prob)
+    start = calc_start_probability(tr_prob)
 
     predicted_tags = []
 
@@ -236,7 +235,7 @@ def tagging_nv(train, train_tags, test_tags, test_words):
     tr_prob = calc_transition_probability(train_tags, count_tags)
 
     # Calcola probabilità della prima parola della frase
-    start = start_prob(tr_prob)
+    start = calc_start_probability(tr_prob)
 
     predicted_tags = []
 
@@ -245,7 +244,6 @@ def tagging_nv(train, train_tags, test_tags, test_words):
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)
-
 
 
 
@@ -280,7 +278,7 @@ def tagging_dev(train, train_tags, test_tags, test_words, dev):
     tr_prob = calc_transition_probability(train_tags, count_tags)
 
     # Calcola probabilità della prima parola della frase
-    start = start_prob(tr_prob)
+    start = calc_start_probability(tr_prob)
 
     # Calcola la distribuzione delle parole che compaiono una sola volta nel development set
     dev_dist = prob_dev_distribution(dev, tags_list)
@@ -306,7 +304,7 @@ def tagging_uniform(train, train_tags, test_tags, test_words):
     tr_prob = calc_transition_probability(train_tags, count_tags)
 
     # Calcola probabilità della prima parola della frase
-    start = start_prob(tr_prob)
+    start = calc_start_probability(tr_prob)
 
     predicted_tags = []
 
@@ -329,7 +327,7 @@ def tagging_syntax(train, train_tags, test_tags, test_words):
     tr_prob = calc_transition_probability(train_tags, count_tags)
 
     # Calcola probabilità della prima parola della frase
-    start = start_prob(tr_prob)
+    start = calc_start_probability(tr_prob)
 
     predicted_tags = []
 

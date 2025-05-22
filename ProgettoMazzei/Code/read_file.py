@@ -2,8 +2,6 @@ import os
 import numpy as np
 from conllu import parse
 
-
-
 # Crea la matrice con tutte le parole e il corrispondente tag e crea il vettore con tutte le frasi
 # [['Non' 'ADV']
 # .....
@@ -12,13 +10,15 @@ from conllu import parse
 # ['ADV AUX VERB NOUN ADJ ADP DET NOUN ADP DET NOUN ADP NOUN PUNCT',
 # .....
 # 'PRON VERB PRON ADV ADP ADV PUNCT SCONJ ADV PRON ADP ADJ AUX VERB ADP DET NOUN PRON VERB ADP VERB PRON PUNCT']
+
+
 def create_mat(data):
     sentences = parse(data)
 
     mat = [[token["form"], token["upostag"]]    # Aggiungi a mat la coppia
             for s in sentences                  # Per ogni frase
                 for token in s                  # Per ogni token nella frase
-                    if token["upostag"] != '_']  # Se il token è diverso da _
+                    if token["upostag"] != '_'] # Se il token è diverso da _
 
     frasi_tag = [' '.join([token['upostag']
                 for token in sentence

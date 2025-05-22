@@ -1,6 +1,5 @@
 import math
 
-
 # Algoritmo di viterbi con smoothing NOUN
 def viterbi_n(sentence, tags, start_p, tr, em):
 
@@ -24,7 +23,6 @@ def viterbi_n(sentence, tags, start_p, tr, em):
         viterbi[state][0] = (- math.log(start_prob)) + (- math.log(emit_prob))
         backpointer[state][0] = None
 
-    # Ricorsione (passi successivi)
     for t in range(1, len(sentence)):
         word = sentence[t]
 
@@ -62,7 +60,6 @@ def viterbi_n(sentence, tags, start_p, tr, em):
         best_path.insert(0, best_last_state)
 
     return list(zip(sentence, best_path))
-
 
 
 
@@ -130,7 +127,6 @@ def viterbi_vn(sentence, tags, start_p, tr, em):
 
 
 
-
 # Algoritmo di viterbi con smoothing development set
 def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
 
@@ -191,7 +187,6 @@ def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
         best_path.insert(0, best_last_state)
 
     return list(zip(sentence, best_path))
-
 
 
 
@@ -258,11 +253,8 @@ def viterbi_uniform(sentence, tags, start_p, tr, em):
     return list(zip(sentence, best_path))
 
 
-
-
-
+# Controlla se la parola finisce con un certo suffisso o se inizia con una lettera maiuscola
 def check_syntax(word, tag):
-
 
     dict = {
         'ADJ': [
@@ -304,6 +296,7 @@ def check_syntax(word, tag):
         return 1
 
     return 0.5 if tag in ['NOUN', 'VERB'] else 0
+
 
 
 # Algoritmo di viterbi con smoothing basato sulla sintassi
