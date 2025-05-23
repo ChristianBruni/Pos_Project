@@ -12,7 +12,7 @@ from conllu import parse
 # 'PRON VERB PRON ADV ADP ADV PUNCT SCONJ ADV PRON ADP ADJ AUX VERB ADP DET NOUN PRON VERB ADP VERB PRON PUNCT']
 
 
-def create_mat(data):
+def extract_pos_data(data):
     sentences = parse(data)
 
     mat = [[token["form"], token["upostag"]]    # Aggiungi a mat la coppia
@@ -42,7 +42,7 @@ def load_data_vit_train():
 
     with open(path_vit_train, "r", encoding="utf-8") as f:
         data_vit_train = f.read()
-    vit_train, vit_train_tags, vit_train_words = create_mat(data_vit_train)
+    vit_train, vit_train_tags, vit_train_words = extract_pos_data(data_vit_train)
 
     return vit_train, vit_train_tags, vit_train_words
 
@@ -52,7 +52,7 @@ def load_data_vit_dev():
 
     with open(path_vit_dev, "r", encoding="utf-8") as f:
         data_vit_dev = f.read()
-    vit_dev, vit_dev_tags, vit_dev_words = create_mat(data_vit_dev)
+    vit_dev, vit_dev_tags, vit_dev_words = extract_pos_data(data_vit_dev)
 
     return vit_dev, vit_dev_tags, vit_dev_words
 
@@ -62,7 +62,7 @@ def load_data_vit_test():
 
     with open(path_vit_test, "r", encoding="utf-8") as f:
         data_vit_test = f.read()
-    vit_test, vit_test_tags, vit_test_words = create_mat(data_vit_test)
+    vit_test, vit_test_tags, vit_test_words = extract_pos_data(data_vit_test)
 
     return vit_test, vit_test_tags, vit_test_words
 
@@ -72,7 +72,7 @@ def load_data_old_train():
 
     with open(path_old_train, "r", encoding="utf-8") as f:
         data_old_train = f.read()
-    old_train, old_train_tags, old_train_words = create_mat(data_old_train)
+    old_train, old_train_tags, old_train_words = extract_pos_data(data_old_train)
 
     return old_train, old_train_tags, old_train_words
 
@@ -82,7 +82,7 @@ def load_data_old_dev():
 
     with open(path_old_dev, "r", encoding="utf-8") as f:
         data_old_dev = f.read()
-    old_dev, old_train_tags, old_train_words = create_mat(data_old_dev)
+    old_dev, old_train_tags, old_train_words = extract_pos_data(data_old_dev)
 
     return old_dev, old_train_tags, old_train_words
 
@@ -92,6 +92,6 @@ def load_data_old_test():
 
     with open(path_old_test, "r", encoding="utf-8") as f:
         data_old_test = f.read()
-    old_test, old_test_tags, old_test_words = create_mat(data_old_test)
+    old_test, old_test_tags, old_test_words = extract_pos_data(data_old_test)
 
     return old_test, old_test_tags, old_test_words

@@ -15,6 +15,8 @@ def calc_prob(data):
     return np.hstack((np_data_counts, freq))
 
 # Conta quante volte compare un tag e ne calcola la probabilità a priori
+# Esempio:
+
 # [['ADV' '1039' '0.0855848434925865']
 # .....
 # ['PART' '7' '0.0005766062602965404']]
@@ -24,9 +26,13 @@ def fn_count_tags(data):
 
 
 
+# Per ogni parola, assegna la probabilità associata ad ogni tag
+# Esempio:
 
-
-
+#     DET  NOUN  ADP     PROPN  PUNCT  ...  NUM       SYM    X  INTJ  PART
+# !   0.0   0.0  0.0  0.000000    1.0  ...  0.0  0.000000  0.0   0.0   0.0
+# ...
+# "   0.0   0.0  0.0  0.000000    1.0  ...  0.0  0.000000  0.0   0.0   0.0
 def prob_words_tag(data, tags):
 
     parole = np.unique(data[:, 0])   # tutte le parole uniche
@@ -50,29 +56,26 @@ def prob_words_tag(data, tags):
     return mat
 
 
-
+# Assegna il tag ad ogni parola; se la parola è presente nel training allora assegna il tag più frerquente, altrimenti assegna il tag NOUN
 def baseline_tagger(words, dict):
 
     state = []  # lista dei tag assegnati parola per parola
 
     for word in words:  # per ogni parola da taggare
         if word in dict.index:
-            tag_probs = dict.loc[word]  # Serie con P(tag | parola)
+            tag_probs = dict.loc[word]  # lista di probabilità di ogni tag associato alla parola
             best_tag = tag_probs.idxmax()  # tag con la probabilità più alta
         else:
-            best_tag = 'NOUN'  # smoothing: parola mai vista, default a NOUN
+            best_tag = 'NOUN'  # se la parola non è presente nel dizionario allora assegna il tag NOUN
         state.append(best_tag)
 
     return list(zip(words, state))
 
 
-
+# Addestra il modello sui dati di training e calcola l'accuracy delle predizioni sul test set per la baseline
 def tagging_baseline(train, test_tags, test_words):
 
-    # Conta i tag
     count_tags = fn_count_tags(train)
-
-    # Calcola le probabilità di emissione
     dict_word_tag = prob_words_tag(train, count_tags)
     predicted_tags = []
 
@@ -81,24 +84,6 @@ def tagging_baseline(train, test_tags, test_words):
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -165,30 +150,21 @@ def calc_transition_probability(train_tags, tags):
 
 
 
-# Calcola le probabilità della prima parola della frase
-def calc_start_probability(numpy_dict):
+# Restituisce la probabibilità che un certo tag appaia all'inizio di una frase, esaminando la distribuzione dei tag che seguono direttamente 'S0'
+def calc_start_probability(trans_dict):
+    # Recupera le transizioni che partono da 'S0'
+    start_transitions = trans_dict.get('S0', {}).copy()
+    # Rimuove 'S0' dalle transizioni iniziali, se presente
+    start_transitions.pop('S0', None)
+    return start_transitions
 
-    converted_dict = {}
-
-    for outer_key, inner_dict in numpy_dict.items():
-        # Converti le chiavi da np.str_ a stringhe
-        outer_key_str = str(outer_key)
-        inner_dict_converted = {str(inner_key): float(value) for inner_key, value in inner_dict.items()}
-
-        # Assegna il dizionario interno al tag esterno
-        converted_dict[outer_key_str] = inner_dict_converted
-
-    # Ora estrai solo i valori associati a 'S0', rimuovendo 'S0' stesso se è presente nei tag
-    start_probs = {tag: prob for tag, prob in converted_dict['S0'].items() if tag != 'S0'}
-
-    return start_probs
 
 
 
 # Calcola l'accuratezza dei tag
 # input predict_seq: sequenza di tutti i tag predetti
 # input true_seq: sequenza di tutti i veri tag
-# output: accuratezza
+# output: accuracy
 def calc_accuracy(predict_seq, true_seq):
 
     predict = [str(tag) for sentence in predict_seq for _, tag in sentence] # estrae dalla sequenza predetta tutti i tag e li mette in un vettore
