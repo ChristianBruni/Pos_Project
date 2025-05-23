@@ -9,7 +9,7 @@ def viterbi_n(sentence, tags, start_p, tr, em):
     viterbi = {state: [0.0] * len(sentence) for state in tags}
     backpointer = {state: [None] * len(sentence) for state in tags}
 
-    # Inizializzazione (primo passo)
+    # Inizializzazione (primo ciclo)
     for state in tags:
         word = sentence[0]
 
@@ -27,7 +27,7 @@ def viterbi_n(sentence, tags, start_p, tr, em):
         word = sentence[t]
 
         for current_state in tags:
-            max_prob = float('inf')
+            min_prob = float('inf')
             best_prev_state = None
 
             if word not in em[current_state]:
@@ -42,11 +42,11 @@ def viterbi_n(sentence, tags, start_p, tr, em):
                 trans_prob = max(trans_prob, epsilon)
                 prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob < max_prob:
-                    max_prob = prob
+                if prob < min_prob:
+                    min_prob = prob
                     best_prev_state = prev_state
 
-            viterbi[current_state][t] = max_prob
+            viterbi[current_state][t] = min_prob
             backpointer[current_state][t] = best_prev_state
 
     # Terminazione (trova lo stato finale migliore)
@@ -92,7 +92,7 @@ def viterbi_vn(sentence, tags, start_p, tr, em):
         word = sentence[t]
 
         for current_state in tags:
-            max_prob = float('inf')
+            min_prob = float('inf')
             best_prev_state = None
 
             if word not in em[current_state]:
@@ -106,11 +106,11 @@ def viterbi_vn(sentence, tags, start_p, tr, em):
                 trans_prob = max(trans_prob, epsilon)
                 prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob < max_prob:
-                    max_prob = prob
+                if prob < min_prob:
+                    min_prob = prob
                     best_prev_state = prev_state
 
-            viterbi[current_state][t] = max_prob
+            viterbi[current_state][t] = min_prob
             backpointer[current_state][t] = best_prev_state
 
     # Terminazione (trova lo stato finale migliore)
@@ -155,7 +155,7 @@ def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
         word = sentence[t]
 
         for current_state in tags:
-            max_prob = float('inf')
+            min_prob = float('inf')
             best_prev_state = None
 
             if word not in em[current_state]:
@@ -169,11 +169,11 @@ def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
                 trans_prob = max(trans_prob, epsilon)
                 prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob < max_prob:
-                    max_prob = prob
+                if prob < min_prob:
+                    min_prob = prob
                     best_prev_state = prev_state
 
-            viterbi[current_state][t] = max_prob
+            viterbi[current_state][t] = min_prob
             backpointer[current_state][t] = best_prev_state
 
     # Terminazione (trova lo stato finale migliore)
@@ -220,7 +220,7 @@ def viterbi_uniform(sentence, tags, start_p, tr, em):
         word = sentence[t]
 
         for current_state in tags:
-            max_prob = float('inf')
+            min_prob = float('inf')
             best_prev_state = None
 
             if word not in em[current_state]:
@@ -235,10 +235,10 @@ def viterbi_uniform(sentence, tags, start_p, tr, em):
                 trans_prob = max(trans_prob, epsilon)
                 prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob < max_prob:
-                    max_prob = prob
+                if prob < min_prob:
+                    min_prob = prob
                     best_prev_state = prev_state
-            viterbi[current_state][t] = max_prob
+            viterbi[current_state][t] = min_prob
             backpointer[current_state][t] = best_prev_state
     # Terminazione (trova lo stato finale migliore)
     best_last_state = min(tags, key=lambda s: viterbi[s][-1])
@@ -350,34 +350,34 @@ def viterbi_sintax(sentence, tags, start_p, tr, em):
         if sum_arr_emit > 1:
 
             for emit, current_state in zip(arr_emit2, tags):
-                max_prob = float('inf')
+                min_prob = float('inf')
                 best_prev_state = None
 
                 for prev_state in tags:
                     trans_prob = tr[prev_state].get(current_state, 0)
                     prob = viterbi[prev_state][t-1] + (-math.log(max(trans_prob, epsilon))) + (-math.log((emit / sum_arr_emit)))
 
-                    if prob < max_prob:
-                        max_prob = prob
+                    if prob < min_prob:
+                        min_prob = prob
                         best_prev_state = prev_state
 
-                viterbi[current_state][t] = max_prob
+                viterbi[current_state][t] = min_prob
                 backpointer[current_state][t] = best_prev_state
         else:
 
             for emit, current_state in zip(arr_emit2, tags):
-                max_prob = float('inf')
+                min_prob = float('inf')
                 best_prev_state = None
 
                 for prev_state in tags:
                     trans_prob = tr[prev_state].get(current_state, 0)
                     prob = viterbi[prev_state][t-1] + (-math.log(max(trans_prob, epsilon))) + (-math.log(emit))
 
-                    if prob < max_prob:
-                        max_prob = prob
+                    if prob < min_prob:
+                        min_prob = prob
                         best_prev_state = prev_state
 
-                viterbi[current_state][t] = max_prob
+                viterbi[current_state][t] = min_prob
                 backpointer[current_state][t] = best_prev_state
 
     # Terminazione
