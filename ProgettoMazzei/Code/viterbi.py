@@ -9,7 +9,7 @@ def viterbi_n(sentence, tags, start_p, end_p, tr, em):
     viterbi = {state: [0.0] * len(sentence) for state in tags}
     backpointer = {state: [None] * len(sentence) for state in tags}
 
-    # Inizializzazione (primo passo)
+    # Inizializzazione (primo ciclo)
     for state in tags:
         word = sentence[0]
 

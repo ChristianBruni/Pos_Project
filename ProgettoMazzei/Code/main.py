@@ -1,13 +1,3 @@
-#screen del codice da fare
-#create_mat per far vedeere come parsifichiamo il dataset
-#viterbi_n il primo ciclo per far vedere il primo tag
-#viterbi_n il secondo ciclo
-#viterbi_syntax
-#calc_emission_probability
-#calc_transition_probability
-#tagging_n per var vedere  che calcoliamo le prob e poi facciamo il ciclo su ogni frase
-
-
 import function as fn
 import read_file as rf
 import numpy as np
