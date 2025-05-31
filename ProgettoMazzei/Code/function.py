@@ -159,6 +159,25 @@ def calc_start_probability(trans_dict):
     return start_transitions
 
 
+# Restituisce la probabibilità che un certo tag appaia alla fine di una frase
+def calc_end_tag_probability(train_tags, tags_list):
+    end_counts = defaultdict(int)
+    total_sentences = len(train_tags)
+
+    # Conta quanti tag appaiono alla fine delle frasi
+    for sentence in train_tags:
+        tags = sentence.split()
+        if tags:  # Evita frasi vuote
+            last_tag = tags[-1]
+            end_counts[last_tag] += 1
+
+    # Calcola le probabilità per tutti i tag, anche quelli mai finali
+    end_probabilities = {}
+    for tag in tags_list:
+        count = end_counts.get(tag, 0)
+        end_probabilities[tag] = count / total_sentences
+
+    return end_probabilities
 
 
 # Calcola l'accuratezza dei tag
@@ -189,11 +208,11 @@ def tagging_n(train, train_tags, test_tags, test_words):
 
     # Calcola probabilità della prima parola della frase
     start = calc_start_probability(tr_prob)
-
+    end = calc_end_tag_probability( train_tags, tags_list)
     predicted_tags = []
 
     for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi.viterbi_n(sentence.split(), tags_list, start, tr_prob, em_prob)
+        tagged_seq = viterbi.viterbi_n(sentence.split(), tags_list, start, end, tr_prob, em_prob)
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)
@@ -212,11 +231,11 @@ def tagging_nv(train, train_tags, test_tags, test_words):
 
     # Calcola probabilità della prima parola della frase
     start = calc_start_probability(tr_prob)
-
+    end = calc_end_tag_probability( train_tags, tags_list)
     predicted_tags = []
 
     for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi.viterbi_vn(sentence.split(), tags_list, start, tr_prob, em_prob)
+        tagged_seq = viterbi.viterbi_vn(sentence.split(), tags_list, start, end, tr_prob, em_prob)
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)
@@ -255,14 +274,14 @@ def tagging_dev(train, train_tags, test_tags, test_words, dev):
 
     # Calcola probabilità della prima parola della frase
     start = calc_start_probability(tr_prob)
-
+    end = calc_end_tag_probability( train_tags, tags_list)
     # Calcola la distribuzione delle parole che compaiono una sola volta nel development set
     dev_dist = prob_dev_distribution(dev, tags_list)
 
     predicted_tags = []
 
     for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi.viterbi_dev(sentence.split(), tags_list, start, tr_prob, em_prob, dev_dist)
+        tagged_seq = viterbi.viterbi_dev(sentence.split(), tags_list, start, end, tr_prob, em_prob, dev_dist)
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)
@@ -281,11 +300,11 @@ def tagging_uniform(train, train_tags, test_tags, test_words):
 
     # Calcola probabilità della prima parola della frase
     start = calc_start_probability(tr_prob)
-
+    end = calc_end_tag_probability( train_tags, tags_list)
     predicted_tags = []
 
     for i, sentence in enumerate(test_words):
-        tagged_seq = viterbi.viterbi_uniform(sentence.split(), tags_list, start, tr_prob, em_prob)
+        tagged_seq = viterbi.viterbi_uniform(sentence.split(), tags_list, start, end, tr_prob, em_prob)
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)
@@ -304,11 +323,11 @@ def tagging_syntax(train, train_tags, test_tags, test_words):
 
     # Calcola probabilità della prima parola della frase
     start = calc_start_probability(tr_prob)
-
+    end = calc_end_tag_probability( train_tags, tags_list)
     predicted_tags = []
 
     for sentence in test_words:
-        tagged_seq = viterbi.viterbi_sintax(sentence.split(), tags_list, start, tr_prob, em_prob)
+        tagged_seq = viterbi.viterbi_sintax(sentence.split(), tags_list, start, end, tr_prob, em_prob)
         predicted_tags.append(tagged_seq)
 
     return calc_accuracy(predicted_tags, test_tags)

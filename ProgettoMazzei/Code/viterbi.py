@@ -1,7 +1,7 @@
 import math
 
 # Algoritmo di viterbi con smoothing NOUN
-def viterbi_n(sentence, tags, start_p, tr, em):
+def viterbi_n(sentence, tags, start_p, end_p, tr, em):
 
     epsilon = 1e-12
 
@@ -27,7 +27,7 @@ def viterbi_n(sentence, tags, start_p, tr, em):
         word = sentence[t]
 
         for current_state in tags:
-            max_prob = float('inf')
+            min_prob = float('inf')
             best_prev_state = None
 
             if word not in em[current_state]:
@@ -42,15 +42,15 @@ def viterbi_n(sentence, tags, start_p, tr, em):
                 trans_prob = max(trans_prob, epsilon)
                 prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob < max_prob:
-                    max_prob = prob
+                if prob < min_prob:
+                    min_prob = prob
                     best_prev_state = prev_state
 
-            viterbi[current_state][t] = max_prob
+            viterbi[current_state][t] = min_prob
             backpointer[current_state][t] = best_prev_state
 
-    # Terminazione (trova lo stato finale migliore)
-    best_last_state = min(tags, key=lambda s: viterbi[s][-1])
+    # Terminazione (trova lo stato finale migliore) best_last_state
+    best_last_state = min(tags, key=lambda s: viterbi[s][-1] + (- math.log(max(end_p[s],epsilon))))
 
     # Ricostruzione del percorso all'indietro
     best_path = [best_last_state]
@@ -64,7 +64,7 @@ def viterbi_n(sentence, tags, start_p, tr, em):
 
 
 # Algoritmo di viterbi con smoothing NOUN + VERB
-def viterbi_vn(sentence, tags, start_p, tr, em):
+def viterbi_vn(sentence, tags, start_p, end_p, tr, em):
 
     epsilon  = 1e-12
 
@@ -92,7 +92,7 @@ def viterbi_vn(sentence, tags, start_p, tr, em):
         word = sentence[t]
 
         for current_state in tags:
-            max_prob = float('inf')
+            min_prob = float('inf')
             best_prev_state = None
 
             if word not in em[current_state]:
@@ -106,15 +106,15 @@ def viterbi_vn(sentence, tags, start_p, tr, em):
                 trans_prob = max(trans_prob, epsilon)
                 prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob < max_prob:
-                    max_prob = prob
+                if prob < min_prob:
+                    min_prob = prob
                     best_prev_state = prev_state
 
-            viterbi[current_state][t] = max_prob
+            viterbi[current_state][t] = min_prob
             backpointer[current_state][t] = best_prev_state
 
     # Terminazione (trova lo stato finale migliore)
-    best_last_state = min(tags, key=lambda s: viterbi[s][-1])
+    best_last_state = min(tags, key=lambda s: viterbi[s][-1] + (- math.log(max(end_p[s],epsilon))))
 
     # Ricostruzione del percorso all'indietro
     best_path = [best_last_state]
@@ -128,7 +128,7 @@ def viterbi_vn(sentence, tags, start_p, tr, em):
 
 
 # Algoritmo di viterbi con smoothing development set
-def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
+def viterbi_dev(sentence, tags, start_p, end_p, tr, em, dev_dist):
 
     epsilon = 1e-12
 
@@ -155,7 +155,7 @@ def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
         word = sentence[t]
 
         for current_state in tags:
-            max_prob = float('inf')
+            min_prob = float('inf')
             best_prev_state = None
 
             if word not in em[current_state]:
@@ -169,15 +169,15 @@ def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
                 trans_prob = max(trans_prob, epsilon)
                 prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob < max_prob:
-                    max_prob = prob
+                if prob < min_prob:
+                    min_prob = prob
                     best_prev_state = prev_state
 
-            viterbi[current_state][t] = max_prob
+            viterbi[current_state][t] = min_prob
             backpointer[current_state][t] = best_prev_state
 
     # Terminazione (trova lo stato finale migliore)
-    best_last_state = min(tags, key=lambda s: viterbi[s][-1])
+    best_last_state = min(tags, key=lambda s: viterbi[s][-1] + (- math.log(max(end_p[s],epsilon))))
 
     # Ricostruzione del percorso all'indietro
     best_path = [best_last_state]
@@ -191,7 +191,7 @@ def viterbi_dev(sentence, tags, start_p, tr, em, dev_dist):
 
 
 # Algoritmo di viterbi con smoothing uniform distribution
-def viterbi_uniform(sentence, tags, start_p, tr, em):
+def viterbi_uniform(sentence, tags, start_p, end_p, tr, em):
 
     epsilon = 1e-12
 
@@ -220,7 +220,7 @@ def viterbi_uniform(sentence, tags, start_p, tr, em):
         word = sentence[t]
 
         for current_state in tags:
-            max_prob = float('inf')
+            min_prob = float('inf')
             best_prev_state = None
 
             if word not in em[current_state]:
@@ -235,13 +235,13 @@ def viterbi_uniform(sentence, tags, start_p, tr, em):
                 trans_prob = max(trans_prob, epsilon)
                 prob = viterbi[prev_state][t-1] + (- math.log(trans_prob)) + (- math.log(emit_prob))
 
-                if prob < max_prob:
-                    max_prob = prob
+                if prob < min_prob:
+                    min_prob = prob
                     best_prev_state = prev_state
-            viterbi[current_state][t] = max_prob
+            viterbi[current_state][t] = min_prob
             backpointer[current_state][t] = best_prev_state
     # Terminazione (trova lo stato finale migliore)
-    best_last_state = min(tags, key=lambda s: viterbi[s][-1])
+    best_last_state = min(tags, key=lambda s: viterbi[s][-1] + (- math.log(max(end_p[s],epsilon))))
 
     # Ricostruzione del percorso all'indietro
     best_path = [best_last_state]
@@ -267,7 +267,7 @@ def check_syntax(word, tag):
             'icciolo', 'iere', 'ino', 'iolo', 'ismo', 'ista', 'ità', 'legio', 'mento', 'oide',
             'one', 'osi', 'ota', 'oto', 'otto', 'tore', 'tura', 'uccio', 'ucolo', 'ume', 'uto',
             'uzzo', 'zione'
-        ],
+        ], 
         'PUNCT': [
             '.', ',', ';', ':', '!', '?', '"', '«', '»', '…', '(', ')'
         ],
@@ -300,7 +300,7 @@ def check_syntax(word, tag):
 
 
 # Algoritmo di viterbi con smoothing basato sulla sintassi
-def viterbi_sintax(sentence, tags, start_p, tr, em):
+def viterbi_sintax(sentence, tags, start_p, end_p, tr, em):
 
     epsilon = 1e-12
 
@@ -329,7 +329,6 @@ def viterbi_sintax(sentence, tags, start_p, tr, em):
             backpointer[state][0] = None
     else:
         for emit, state in zip(arr_emit, tags):
-            #viterbi[state][0] = start_p.get(state, 0) * emit
             viterbi[state][0] = -math.log(max(start_p.get(state, 0), epsilon)) + (-math.log(emit))
             backpointer[state][0] = None
 
@@ -350,38 +349,38 @@ def viterbi_sintax(sentence, tags, start_p, tr, em):
         if sum_arr_emit > 1:
 
             for emit, current_state in zip(arr_emit2, tags):
-                max_prob = float('inf')
+                min_prob = float('inf')
                 best_prev_state = None
 
                 for prev_state in tags:
                     trans_prob = tr[prev_state].get(current_state, 0)
                     prob = viterbi[prev_state][t-1] + (-math.log(max(trans_prob, epsilon))) + (-math.log((emit / sum_arr_emit)))
 
-                    if prob < max_prob:
-                        max_prob = prob
+                    if prob < min_prob:
+                        min_prob = prob
                         best_prev_state = prev_state
 
-                viterbi[current_state][t] = max_prob
+                viterbi[current_state][t] = min_prob
                 backpointer[current_state][t] = best_prev_state
         else:
 
             for emit, current_state in zip(arr_emit2, tags):
-                max_prob = float('inf')
+                min_prob = float('inf')
                 best_prev_state = None
 
                 for prev_state in tags:
                     trans_prob = tr[prev_state].get(current_state, 0)
                     prob = viterbi[prev_state][t-1] + (-math.log(max(trans_prob, epsilon))) + (-math.log(emit))
 
-                    if prob < max_prob:
-                        max_prob = prob
+                    if prob < min_prob:
+                        min_prob = prob
                         best_prev_state = prev_state
 
-                viterbi[current_state][t] = max_prob
+                viterbi[current_state][t] = min_prob
                 backpointer[current_state][t] = best_prev_state
 
     # Terminazione
-    best_last_state = min(tags, key=lambda s: viterbi[s][-1])
+    best_last_state = min(tags, key=lambda s: viterbi[s][-1] + (- math.log(max(end_p[s],epsilon))))
     best_path = [best_last_state]
 
     for t in range(len(sentence) - 1, 0, -1):
